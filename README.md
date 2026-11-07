@@ -11,7 +11,7 @@ sulla base di modelli fisici documentati e di dati storici di irraggiamento.
 | Fase | Stato |
 |---|---|
 | 1. Fondamenta del progetto + posizione del sole | ✅ |
-| 2. Dati di irraggiamento (PVGIS) | ⏳ |
+| 2. Dati di irraggiamento (PVGIS) | ✅ |
 | 3. Modello di produzione e validazione | ⏳ |
 | 4. Interfaccia con slider e grafici | ⏳ |
 | 5. Scelta della posizione su mappa | ⏳ |
@@ -35,7 +35,8 @@ npm test
 ```
 
 I test del motore di calcolo confrontano i risultati con valori di riferimento
-pubblicati (NREL, NOAA). Le fonti sono indicate in ogni file di test.
+pubblicati (NREL, NOAA, PVGIS). Le fonti sono indicate in ogni file di test.
+I dati PVGIS usati nei test sono salvati in `src/engine/__fixtures__/`: i test non usano la rete.
 
 ## Fonti scientifiche
 
@@ -43,3 +44,6 @@ pubblicati (NREL, NOAA). Le fonti sono indicate in ogni file di test.
 - NOAA Global Monitoring Laboratory, *Solar Calculator*.
 - I. Reda, A. Andreas, *Solar Position Algorithm for Solar Radiation Applications*,
   NREL/TP-560-34302, 2008.
+- JRC, Commissione Europea, *PVGIS 5.3* — anno meteorologico tipo e irradiazione mensile
+  (banche dati PVGIS-SARAH3 ed ERA5).
+- J. A. Duffie, W. A. Beckman, *Solar Engineering of Thermal Processes*, 4ª ed., Wiley, 2013.

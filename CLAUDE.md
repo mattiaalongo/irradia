@@ -23,11 +23,25 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | Risultati: **solo energia prodotta** (kWh) per ora | La parte economica (costi, risparmio, rientro) è rimandata. |
 | TypeScript (versione 6.0, non la 7) | typescript-eslint supporta al massimo TS < 6.1. |
 | React + Vite, test con Vitest | Ecosistema più diffuso. Vitest si integra con Vite. |
+| Dal TMY leggiamo GHI, DNI, DHI, temperatura **e vento a 10 m** | Il modello termico delle celle di PVGIS (Faiman) usa il vento: serve in fase 3 per validare. |
+| `fetchPvgisTmy` riceve l'indirizzo di base (`baseUrl`) come parametro | Il motore non deve sapere se dietro c'è il proxy di Vite o una funzione serverless. |
+| Lettura (`parsePvgisTmy`, pura) separata dallo scaricamento (`fetchPvgisTmy`) | Tutta la logica si testa senza rete. |
+| `TmyHour.time` è l'istante UTC **reale** (anno da cui PVGIS ha preso quel mese) | È il dato originale; nessun anno fittizio inventato. |
+| Unità nel nome dei campi (`ghiWm2`, `airTemperatureC`, …) e verificate sul `meta` di PVGIS | Impossibile confonderle; se PVGIS le cambia, la lettura fallisce invece di sbagliare. |
+| Versione API PVGIS `v5_3` fissata in `engine/pvgisTmy.ts` | Il parser è verificato su quel formato. |
+| Test su risposte PVGIS reali salvate in `engine/__fixtures__/` (Roma centro) | Deterministici e senza rete. Coordinate di una città, non di casa del proprietario. |
 
 **Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
 leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
 (es. funzione serverless sull'hosting; in sviluppo basta il proxy di Vite).
 Endpoint dell'anno tipo: `https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=..&lon=..&outputformat=json`.
+In sviluppo il proxy di Vite (`vite.config.ts`) inoltra `/api/pvgis/...` a
+`https://re.jrc.ec.europa.eu/api/...`: usare `baseUrl: '/api/pvgis'`.
+
+**Orari di PVGIS (verificato 7/11/2026):** `time(UTC)` è l'inizio dell'ora in UTC; le
+irradianze si riferiscono a `time + irradiance_time_offset` (≈ 10 minuti, campo
+`Tmy.irradianceTimeOffsetH`). Per la posizione del sole di un'ora va usato quell'istante:
+con il ritardo GHI = DNI·cos z + DHI torna ora per ora entro lo 0,11 %, senza sale al 2 %.
 
 L'ambiente cloud `irradia` consente l'accesso a `re.jrc.ec.europa.eu` e installa
 le dipendenze all'avvio. Le sessioni di questo progetto vanno avviate su quell'ambiente.
@@ -38,6 +52,7 @@ le dipendenze all'avvio. Le sessioni di questo progetto vanno avviate su quell'a
 src/
   engine/      Motore di calcolo: TypeScript puro, nessuna dipendenza da React o dal DOM.
                Ogni modulo ha il suo file *.test.ts accanto.
+    __fixtures__/  Risposte reali di PVGIS usate dai test (origine e hash nel README.md).
   App.tsx      Interfaccia (per ora una pagina di prova della posizione solare).
 ```
 
@@ -47,7 +62,8 @@ si riuserà identico nell'app mobile.
 ### Catena di calcolo prevista
 
 1. Posizione del sole (`engine/solarPosition.ts`, algoritmo NOAA/Meeus) — **fatto**
-2. Dati di irraggiamento orari di un anno tipo (TMY) da PVGIS: GHI, DNI, DHI, temperatura
+2. Dati di irraggiamento orari di un anno tipo (TMY) da PVGIS: GHI, DNI, DHI, temperatura,
+   vento (`engine/pvgisTmy.ts`) — **fatto**
 3. Trasposizione sul piano dei pannelli (inclinazione + orientamento)
 4. Potenza DC con perdite per temperatura delle celle, poi perdite di sistema (inverter, cavi)
 5. Aggregazione: kWh mensili e annuali
