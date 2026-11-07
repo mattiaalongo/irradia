@@ -24,9 +24,13 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | TypeScript (versione 6.0, non la 7) | typescript-eslint supporta al massimo TS < 6.1. |
 | React + Vite, test con Vitest | Ecosistema più diffuso. Vitest si integra con Vite. |
 
-Da verificare quando lavoreremo ai dati: PVGIS potrebbe non accettare chiamate dirette
-dal browser (CORS). In quel caso servirà un piccolo intermediario lato server
-(es. funzione serverless sull'hosting).
+**Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
+leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
+(es. funzione serverless sull'hosting; in sviluppo basta il proxy di Vite).
+Endpoint dell'anno tipo: `https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=..&lon=..&outputformat=json`.
+
+L'ambiente cloud `irradia` consente l'accesso a `re.jrc.ec.europa.eu` e installa
+le dipendenze all'avvio. Le sessioni di questo progetto vanno avviate su quell'ambiente.
 
 ## Architettura
 
