@@ -29,18 +29,16 @@ l'intermediario di produzione); non esiste un piano scritto più dettagliato.
 
 - **PR #4 (fase 4)**, ramo `fase-4/interfaccia`: aperta, risulta unibile senza conflitti, nessuna
   revisione registrata, nessun controllo automatico associato (non ce ne sono).
-- **Squadra di agenti** (ramo `setup/squadra-agenti`, creato da `main`): mansionari in
-  `.claude/agents/` e sezione in fondo a `CLAUDE.md`, nella **PR #5**, in attesa di unione.
-  Questo file è la prima uscita del PJM.
-- **PR "GitHub e CI"** (ramo `setup/github-ci`): workflow test/lint/build, Dependabot, modelli di issue e di PR. In attesa di unione dopo la #5.
+- **Squadra di agenti**: mansionari in `.claude/agents/` e sezione in fondo a `CLAUDE.md`,
+  **unita su `main`** con la PR #5 (8/11/2026).
+- **PR "GitHub e CI"** (ramo `setup/github-ci`): workflow test/lint/build, Dependabot, modelli di issue e di PR. Aperta su `main`, in attesa di revisione.
 - Issue aperti su GitHub: nessuno. Controlli automatici: girano già sulla PR "GitHub e CI" stessa; su `main` e sulle altre PR partono dopo l'unione.
 
 ## Decisioni che aspettano il PO
 
 1. Revisione e unione della **PR #4** (fase 4).
-2. Via libera alla **PR #5** (squadra di agenti).
-3. Unire la PR "GitHub e CI" **dopo la #5** (squadra di agenti) e poi applicare **a mano** la protezione del ramo `main` (PR obbligatoria, controllo CI verde): le istruzioni passo-passo sono nella descrizione della PR.
-4. Quando la PR #4 sarà unita, per regola del 8/11/2026: passare allo step successivo?
+2. Unire la PR "GitHub e CI" e poi applicare **a mano** la protezione del ramo `main` (PR obbligatoria, controllo CI verde): le istruzioni passo-passo sono nella descrizione della PR.
+3. Quando la PR #4 sarà unita, per regola del 8/11/2026: passare allo step successivo?
    Nota: la fase 4 introduce questa regola anche in `CLAUDE.md`; le due PR modificano lo stesso
    file e potrebbero richiedere di sistemare un conflitto (vedi rischi).
 
@@ -62,9 +60,8 @@ Non verificato: stato effettivo di test/lint/build della #4 (nessun controllo au
 ## Prossimi passi
 
 1. Il PO rivede e unisce la **PR #4**.
-2. Committare e aprire la PR della **squadra di agenti** (`setup/squadra-agenti`), dopo
-   aver allineato il ramo a `main`.
-3. PR **"GitHub e CI"**: **in corso** (workflow test/lint/build, Dependabot, modelli di issue e PR, etichette); da unire dopo la #5.
+2. ~~PR della squadra di agenti~~: **unita** (#5).
+3. PR **"GitHub e CI"**: **aperta** (workflow test/lint/build, Dependabot, modelli di issue e PR, etichette già create).
 4. PR **"Strumenti del tester"**: fast-check (prove su input casuali) e Playwright (prove nel browser).
 5. **Collaudo del flusso** su un issue reale (TL, SWD/Designer, ST, PR, aggiornamento di questo file).
 6. Poi fase 5 (mappa) e fase 6 (intermediario di produzione), da pianificare con il TL.
