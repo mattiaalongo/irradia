@@ -224,8 +224,10 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
    l'ultimo della PR, e la CI è verde, la sessione cloud **toglie la bozza** e lo scrive
    sulla PR. Ogni nuovo commit annulla gli esiti: si riprova.
 5. Il PO unisce solo PR **non in bozza e con CI verde**.
-6. **Eccezione: PR di sola documentazione** (solo file `.md`, nessun file eseguito né mostrato
-   dall'app). Non vanno provate nel browser: si aprono già pronte, con la CI verde.
+6. **Eccezione: PR che non toccano l'app** (documentazione, regole, mansionari, skill, modelli
+   di GitHub, Dependabot; nessun file in `src/`, `public/`, `index.html`, `package*.json`,
+   `vite.config.ts`, `tsconfig*`, `.github/workflows/`). Non vanno provate nel browser: si
+   aprono già pronte, con la CI verde.
    Così l'aggiornamento di `docs/stato-progetto.md` dopo l'unione non riapre il ciclo
    (ogni commit annullerebbe gli esiti dei tester; corretto l'8/11/2026 dopo la PR #13).
 
