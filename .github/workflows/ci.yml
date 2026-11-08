@@ -1,0 +1,66 @@
+# Controlli automatici di Irradia: gli stessi quattro comandi che CLAUDE.md
+# richiede prima di ogni commit, ma eseguiti su una macchina pulita di GitHub.
+# Motivo: se girano solo sul PC del proprietario, un errore può arrivare su `main`.
+name: CI
+
+on:
+  # Ogni PR, qualunque sia il ramo di destinazione (nessun filtro "branches":
+  # anche le PR impilate su altri rami vanno controllate come le altre).
+  pull_request:
+  # Dopo l'unione, per accorgersi subito se `main` si rompe (es. due PR
+  # corrette da sole ma incompatibili tra loro).
+  push:
+    branches: [main]
+
+# Permessi minimi: il workflow deve solo leggere il codice. Se un'action venisse
+# compromessa, non potrebbe scrivere nel repository né toccare le PR.
+permissions:
+  contents: read
+
+# Su una PR, un nuovo push rende inutile l'esecuzione precedente: la annulliamo
+# per non sprecare minuti. Su `main` NON annulliamo: ogni unione deve avere il
+# suo esito registrato (github.run_id rende il gruppo unico a ogni esecuzione).
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  controlli:
+    name: Test, lint e build
+    runs-on: ubuntu-latest
+    # Il progetto è piccolo (pochi minuti). 15 minuti bastano con ampio margine
+    # e impediscono che un blocco consumi i minuti gratuiti per ore (default: 360).
+    timeout-minutes: 15
+    steps:
+      # Action fissate allo SHA del commit (non al tag): un tag può essere
+      # spostato da chi controlla l'action, uno SHA no. Dependabot aggiorna
+      # sia lo SHA sia il commento della versione.
+      - name: Scarica il codice
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepara Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # Node 24 esplicito (LTS attiva, la stessa usata in locale: 24.21):
+          # "lts/*" cambierebbe da solo e potrebbe rompere i controlli senza
+          # che nel repository sia cambiato nulla. Si cambia versione a mano.
+          node-version: 24
+          # Riusa la cache di npm tra un'esecuzione e l'altra (chiave: package-lock.json).
+          cache: npm
+
+      # `npm ci` (non `npm install`): installa esattamente ciò che dice
+      # package-lock.json e fallisce se non coincide con package.json.
+      - name: Installa le dipendenze
+        run: npm ci
+
+      # I test non usano la rete: leggono fixture salvate in src/engine/__fixtures__/
+      # e una finta `fetch` (verificato). Quindi sono deterministici anche su GitHub.
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      # Include il controllo dei tipi (`tsc -b`) oltre alla build di produzione.
+      - name: Build
+        run: npm run build

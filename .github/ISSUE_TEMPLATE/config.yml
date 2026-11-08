@@ -1,0 +1,4 @@
+# Niente issue vuoti: ogni segnalazione passa da un modulo, così il Technical
+# Leader trova sempre le stesse informazioni e può analizzarla senza chiedere.
+# Nessun contact_links: non esiste (ancora) un sito o un contatto esterno.
+blank_issues_enabled: false
