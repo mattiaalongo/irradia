@@ -136,6 +136,12 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   le dipendenze.
 - **Dependabot proporrà ESLint e `minimatch`** (aggiornamenti settimanali): prima di unire,
   verifica che `npm audit` migliori davvero e che ESLint non torni indietro di versione.
+- **I mansionari degli agenti si leggono dalla cartella principale del progetto**
+  (`<cartella principale del progetto>`), non dalle copie di lavoro (`.claude/worktrees/…`) in cui
+  girano le sessioni (verificato 8/11/2026). Una modifica a `.claude/agents/` vale solo quando
+  la cartella principale è su un ramo che la contiene: tenerla su `main` aggiornato (`git pull`).
+- Il frontmatter dei mansionari è **YAML**: mai `: ` (due punti e spazio) dentro una descrizione
+  senza virgolette, altrimenti l'agente sparisce senza alcun errore (successo al tester l'8/11/2026).
 
 ## Squadra di agenti (decisa l'8/11/2026)
 
