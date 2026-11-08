@@ -165,6 +165,12 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   le dipendenze.
 - **Dependabot proporrà ESLint e `minimatch`** (aggiornamenti settimanali): prima di unire,
   verifica che `npm audit` migliori davvero e che ESLint non torni indietro di versione.
+- **I mansionari degli agenti si leggono dalla cartella principale del progetto**
+  (`<cartella principale del progetto>`), non dalle copie di lavoro (`.claude/worktrees/…`) in cui
+  girano le sessioni (verificato 8/11/2026). Una modifica a `.claude/agents/` vale solo quando
+  la cartella principale è su un ramo che la contiene: tenerla su `main` aggiornato (`git pull`).
+- Il frontmatter dei mansionari è **YAML**: mai `: ` (due punti e spazio) dentro una descrizione
+  senza virgolette, altrimenti l'agente sparisce senza alcun errore (successo al tester l'8/11/2026).
 
 ## Squadra di agenti (decisa l'8/11/2026)
 
@@ -194,6 +200,7 @@ aggiorna `docs/stato-progetto.md` → il PO rivede e unisce.
 | Modelli misti: **Opus** per TL e SWD, **Sonnet** per gli altri | Le scelte architetturali e il codice del motore sono la parte più delicata; il resto costa meno con Sonnet. |
 | Chi verifica (ST) non corregge il codice di prodotto | Chi scrive e chi controlla restano distinti, come in un gruppo reale. |
 | Mansionari scritti per Irradia, collezioni della community solo come ispirazione | Gli agenti già pronti sono generici, in inglese, e non conoscono le regole del motore. |
+| Il tester (ST) prova l'app nel **browser integrato dell'app desktop** (strumenti `mcp__Claude_Browser__*` nel suo elenco `tools:`); più avanti anche con Playwright | Decisione dell'8/11/2026: il livello 4 (browser) non era eseguibile perché il tester non aveva strumenti del browser. È un browser vero sul PC del PO; Playwright renderà le prove ripetibili e lanciabili dalla CI. |
 | Skill ufficiali previste: `frontend-design` (Designer), `webapp-testing` (ST) da `anthropics/skills`; `/security-review`, `/code-review`, `/simplify` integrate | Fonti affidabili; da installare e leggere prima di usarle. |
 | **CI su GitHub Actions** (`.github/workflows/ci.yml`): `npm ci`, `npm test`, `npm run lint`, `npm run build` su ogni PR e su ogni push a `main` | Gli stessi controlli richiesti prima di ogni commit, ma su una macchina pulita: un errore non arriva su `main` senza essere visto. I test non usano la rete (fixture e finta `fetch`). |
 | Action **fissate allo SHA del commit** (con la versione in commento) | Un tag può essere spostato da chi controlla l'action, uno SHA no. Dependabot le tiene aggiornate. |
