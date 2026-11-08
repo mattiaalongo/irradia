@@ -103,6 +103,9 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
 - Le formule si possono mostrare; i concetti di sviluppo software vanno spiegati in modo
   semplice. (Il profilo personale del PO non sta nel repository: lo trovi nelle preferenze del suo
   account, che le sessioni ricevono da sole.)
+- **Descrizioni delle Pull Request ad alto livello**, senza dettagli tecnici (li chiede
+  lui se servono). Sezioni: *Cosa è stato fatto*, *Perché serviva*, *Rischi*,
+  *A cosa prestare attenzione*, *Prossimi passi*.
 - Lavora su un **ramo separato** per ogni obiettivo. Non scrivere direttamente su `main`.
 - Una sessione = un obiettivo. A fine sessione aggiorna questo file se sono state
   prese nuove decisioni.
