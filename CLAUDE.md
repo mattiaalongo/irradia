@@ -206,7 +206,8 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 2. Il tester nel cloud fa i livelli 1-3; la sessione pubblica sulla PR un commento che
    inizia con `🧪 Tester cloud (L1-L3)`, con `Commit provato: <sha>` ed `ESITO: OK|DIFETTI`.
 3. La sessione avvisa il PO, che apre una **sessione locale** e scrive `/prova-locale <n>`
-   (skill in `.claude/skills/prova-locale/`): controlla che la PR sia della squadra, prova
+   (skill in `.claude/skills/prova-locale/`): controlla che la PR sia della squadra, mostra al PO
+   cosa verrà eseguito sul PC (dipendenze, configurazione) e chiede conferma, prova
    **lo stesso commit** nel browser integrato e commenta con `🖥️ Tester locale (L4)`.
 4. Quando entrambi i commenti dicono `ESITO: OK` **sullo stesso commit**, che è anche
    l'ultimo della PR, e la CI è verde, la sessione cloud **toglie la bozza** e lo scrive
