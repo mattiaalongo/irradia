@@ -54,6 +54,12 @@ Endpoint dell'anno tipo: `https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=..&lon=..
 In sviluppo il proxy di Vite (`vite.config.ts`) inoltra `/api/pvgis/...` a
 `https://re.jrc.ec.europa.eu/api/...`: usare `baseUrl: '/api/pvgis'`.
 
+**Firewall di PVGIS (verificato 8/11/2026, sul PC del proprietario):** se l'intermediario
+inoltra lo User-Agent del browser (es. Chrome), PVGIS risponde con una pagina HTML
+"Request Rejected" **con codice 200**. Il proxy di Vite si presenta quindi come
+`irradia-dev-proxy`. Lo stesso dovrà fare l'intermediario di produzione (fase 6).
+I test del parser non lo rilevano perché usano risposte salvate: va provato nel browser.
+
 **Altezza del sole di PVGIS (verificato 8/11/2026):** il campo `H_sun` delle serie di PVGIS
 differisce dal nostro calcolo NOAA fino a 0,4° anche col sole alto: è un'approssimazione
 di PVGIS. Spiega buona parte degli scarti orari della diretta col sole basso.
