@@ -1,0 +1,3 @@
+# Dati scaricati da PVGIS per i test: non mostrarne il contenuto nelle differenze
+# (git e GitHub) e non contarli come codice del progetto. Il file viene comunque salvato.
+src/engine/__fixtures__/*.json -diff linguist-generated
