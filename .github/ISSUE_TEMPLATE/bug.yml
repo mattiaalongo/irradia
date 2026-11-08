@@ -1,0 +1,52 @@
+name: Bug
+description: Qualcosa non funziona o dà un risultato sbagliato.
+title: "[Bug] "
+labels: ["tipo:bug", "stato:da-analizzare"]
+body:
+  - type: textarea
+    id: cosa-succede
+    attributes:
+      label: Cosa succede
+      description: Descrivi il comportamento osservato (aggiungi uno screenshot se utile).
+    validations:
+      required: true
+  - type: textarea
+    id: atteso
+    attributes:
+      label: Cosa ti aspettavi
+    validations:
+      required: true
+  - type: textarea
+    id: passi
+    attributes:
+      label: Passi per riprodurlo
+      placeholder: |
+        1. Apri l'app
+        2. Imposta ...
+        3. Guarda ...
+    validations:
+      required: true
+  - type: textarea
+    id: parametri
+    attributes:
+      label: Parametri usati
+      description: Posizione (lat/lon), inclinazione, orientamento, numero e potenza dei pannelli, perdite.
+    validations:
+      required: true
+  - type: input
+    id: ambiente
+    attributes:
+      label: Browser e dispositivo
+      placeholder: "Es. Chrome 130 su Windows 11; Safari su iPhone 15"
+    validations:
+      required: true
+  - type: dropdown
+    id: gravita
+    attributes:
+      label: Gravità
+      options:
+        - "Bloccante: l'app non si usa o dà risultati sbagliati"
+        - "Seria: funziona male ma si aggira"
+        - "Lieve: difetto estetico o di poco conto"
+    validations:
+      required: true

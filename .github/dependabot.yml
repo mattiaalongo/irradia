@@ -1,0 +1,58 @@
+# Aggiornamenti automatici delle dipendenze. Dependabot apre PR; le unisce
+# sempre il Project Owner dopo che la CI è verde.
+version: 2
+updates:
+  # --- Pacchetti npm (package.json / package-lock.json) ---
+  - package-ecosystem: npm
+    directory: "/"
+    # Settimanale: abbastanza spesso per le correzioni, abbastanza raro da non
+    # inondare di PR. Il lunedì mattina, ora italiana.
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Rome
+    # Tetto alle PR aperte insieme: con i gruppi ne servono poche.
+    open-pull-requests-limit: 5
+    labels:
+      - "agente:cicd"
+      - "tipo:tecnico"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+    groups:
+      # Minor e patch insieme: rischio basso, una sola PR da rivedere.
+      # I "major" restano PR separate (possibili cambiamenti incompatibili).
+      produzione:
+        dependency-type: production
+        update-types: [minor, patch]
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint supporta solo TypeScript < 6.1 (vedi CLAUDE.md):
+      # non proporre salti che romperebbero il lint. Da togliere quando
+      # typescript-eslint lo supporta.
+      - dependency-name: "typescript"
+        versions: [">= 6.1"]
+
+  # --- Action di GitHub (.github/workflows/) ---
+  # Con le action fissate allo SHA servono aggiornamenti automatici, altrimenti
+  # resterebbero ferme per sempre a una versione vecchia.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    labels:
+      - "agente:cicd"
+      - "tipo:tecnico"
+    commit-message:
+      prefix: "ci"
+    # Un solo gruppo: poche action, tutte con lo stesso rischio.
+    groups:
+      github-actions:
+        patterns: ["*"]
