@@ -15,6 +15,10 @@ export default defineConfig({
         target: 'https://re.jrc.ec.europa.eu',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/pvgis/, '/api'),
+        // Chi parla con PVGIS è questo intermediario, non il browser: si presenta col
+        // suo nome. Inoltrando lo User-Agent di Chrome il firewall di PVGIS rifiuta la
+        // richiesta (pagina HTML "Request Rejected" con codice 200; verificato 8/11/2026).
+        headers: { 'User-Agent': 'irradia-dev-proxy' },
       },
     },
   },

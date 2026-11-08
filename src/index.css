@@ -6,7 +6,12 @@
   --fg: #1d1d1b;
   --muted: #6b6b66;
   --border: #d9d9d2;
+  --grid: #e6e6e0;
   --accent: #d98a00;
+  /* Colore delle barre: verificato con il validatore della guida dataviz (banda di
+     luminosità, saturazione). Sul fondo chiaro il contrasto è 2,7:1, sotto 3:1: per
+     questo il grafico ha sempre la tabella dei valori e le etichette sugli estremi. */
+  --bar: #d98a00;
   --error: #b42318;
 }
 
@@ -16,7 +21,11 @@
     --fg: #ecece6;
     --muted: #9a9a92;
     --border: #3a3a35;
+    --grid: #2c2c28;
     --accent: #f0a830;
+    /* Nel tema scuro un passo più scuro dell'accento: #f0a830 è troppo luminoso per una
+       superficie piena (fuori dalla banda di luminosità del validatore). */
+    --bar: #c4810f;
     --error: #f97066;
   }
 }
@@ -30,39 +39,110 @@ body {
 }
 
 main {
-  max-width: 640px;
+  max-width: 1040px;
   margin: 0 auto;
   padding: 32px 16px;
 }
 
 h1 { margin: 0; color: var(--accent); }
+h2 { font-size: 16px; font-weight: 600; margin: 32px 0 8px; }
 .subtitle { margin-top: 4px; color: var(--muted); }
 
-.inputs {
+/* Due colonne su schermo largo (parametri | risultati), una sola su telefono. */
+.layout {
   display: grid;
-  gap: 12px;
-  margin: 24px 0;
+  gap: 32px;
+  margin-top: 24px;
 }
 
-label {
-  display: grid;
-  gap: 4px;
-  font-size: 14px;
-  color: var(--muted);
+@media (min-width: 820px) {
+  .layout { grid-template-columns: 360px 1fr; align-items: start; }
 }
 
-input {
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px 4px;
+  margin: 0 0 16px;
+  min-width: 0;
+}
+
+legend { padding: 0 4px; font-weight: 600; }
+
+.param { margin-bottom: 12px; }
+.param label { display: block; font-size: 14px; color: var(--muted); }
+.param-row { display: flex; align-items: center; gap: 12px; }
+.param-row input[type='range'] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.param-field { display: flex; align-items: center; gap: 4px; }
+.param-unit { font-size: 14px; color: var(--muted); min-width: 1.5em; }
+.param-hint, .param-error { margin: 2px 0 0; font-size: 13px; }
+.param-hint { color: var(--muted); }
+.param-error { color: var(--error); }
+
+input[type='text'] {
   font: inherit;
-  padding: 8px 10px;
+  width: 7.5em;
+  padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: transparent;
   color: var(--fg);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 8px 0; border-bottom: 1px solid var(--border); }
-th { text-align: left; font-weight: 400; color: var(--muted); }
-td { text-align: right; font-variant-numeric: tabular-nums; }
+input[aria-invalid='true'] { border-color: var(--error); }
 
+.status { margin: 0 0 16px; color: var(--muted); }
 .error { color: var(--error); }
+
+/* Risultati della posizione precedente mentre si scaricano quelli nuovi. */
+.stale { opacity: 0.45; transition: opacity 0.2s; }
+
+.hero-label { margin: 0; color: var(--muted); }
+.hero { margin: 0; font-size: 56px; font-weight: 600; line-height: 1.1; }
+.hero-unit { font-size: 24px; font-weight: 400; color: var(--muted); }
+.hero-detail { margin: 4px 0 0; color: var(--muted); }
+
+.source { margin-top: 24px; font-size: 13px; color: var(--muted); }
+
+/* Grafico mensile */
+.chart { margin: 0; }
+.chart-plot { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart-grid { stroke: var(--grid); stroke-width: 1; }
+.chart-tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chart-value { fill: var(--fg); font-size: 12px; font-weight: 600; }
+.chart-hit { fill: transparent; }
+.chart-bar-fill { fill: var(--bar); transition: opacity 0.15s; pointer-events: none; }
+.chart-value { pointer-events: none; }
+.chart-bar { outline: none; cursor: default; }
+.chart-bar.dimmed .chart-bar-fill { opacity: 0.35; }
+.chart-bar:focus-visible .chart-hit { stroke: var(--fg); stroke-width: 1; }
+
+/* Su schermo stretto il disegno si rimpicciolisce: si ingrandiscono i testi (in unità SVG)
+   perché restino leggibili (≈ 10 px effettivi). */
+@media (max-width: 600px) {
+  .chart-tick, .chart-value { font-size: 18px; }
+}
+
+.chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 8px));
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
+}
+
+.chart-table { margin-top: 8px; font-size: 14px; }
+.chart-table summary { cursor: pointer; color: var(--muted); }
+.chart-table table { width: 100%; max-width: 320px; border-collapse: collapse; margin-top: 8px; }
+.chart-table th, .chart-table td { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.chart-table th { text-align: left; font-weight: 400; color: var(--muted); }
+.chart-table td { text-align: right; font-variant-numeric: tabular-nums; }
