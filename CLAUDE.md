@@ -98,6 +98,12 @@ src/
     MonthlyChart.tsx  Grafico a barre dei 12 mesi in SVG; `chartScale.ts` sceglie le tacche.
     format.ts      Numeri in italiano, nomi dei mesi, punti cardinali.
   App.tsx      Pagina principale: parametri a sinistra, totale annuo e grafico a destra.
+  test/        `fastCheckSetup.ts`: seme fisso di fast-check per tutti i test.
+  **/*.property.test.ts  Proprietà con fast-check (input casuali), accanto ai moduli.
+e2e/           Prove nel browser (Playwright) con PVGIS simulato dai fixture.
+    fixtures.ts    Simulazione di PVGIS, blocco delle richieste non simulate, controllo della console.
+    *.spec.ts      calcolo, rete (attesa, memoria, errori), campi e tastiera, impaginazione.
+playwright.config.ts  Solo Chromium, contro la build di produzione (`vite preview`, porta 4173).
 .github/       CI (workflows/ci.yml), Dependabot, modelli di issue e di PR.
 ```
 
@@ -137,6 +143,9 @@ npm test           # esegue tutti i test una volta
 npm run test:watch # riesegue i test a ogni modifica
 npm run lint       # controllo stilistico
 npm run build      # controllo dei tipi + build di produzione in dist/
+npm run test:e2e   # prove nel browser (Playwright); nel cloud anteporre
+                   # PW_CHROMIUM_PATH=/opt/pw-browsers/chromium (browser preinstallato)
+FC_SEED=123 npm test  # proprietà fast-check con un altro seme (solo per esplorare)
 ```
 
 Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passare.
@@ -214,22 +223,39 @@ in una piccola PR di sola documentazione.
 del tester; questa regola fa sì che una PR "pronta" significhi "provata anche nel browser".
 
 1. La sessione cloud apre la PR **in bozza** (*draft*) e la segue (`subscribe_pr_activity`).
-2. Il tester nel cloud fa i livelli 1-3; la sessione pubblica sulla PR un commento che
-   inizia con `🧪 Cloud tester (L1-L3)`, con le righe `Tested commit: <sha>` e `RESULT: OK|DEFECTS`.
-3. La sessione avvisa il PO, che apre una **sessione locale** e scrive `/prova-locale <n>`
+2. Il tester nel cloud fa i livelli 1-3 e le prove automatiche nel browser (4a, Playwright);
+   la sessione pubblica sulla PR un commento che inizia con `🧪 Cloud tester (L1-L3)`, con le
+   righe `Tested commit: <sha>`, `Local L4: required` oppure `Local L4: not required (<motivo>)`
+   (vedi il punto 7) e `RESULT: OK|DEFECTS`.
+3. Solo se serve la prova locale (punto 7), la sessione avvisa il PO, che apre una
+   **sessione locale** e scrive `/prova-locale <n>`
    (skill in `.claude/skills/prova-locale/`): controlla che la PR sia della squadra, mostra al PO
    cosa verrà eseguito sul PC (dipendenze, configurazione) e chiede conferma, prova
    **lo stesso commit** nel browser integrato e commenta con `🖥️ Local tester (L4)`.
-4. Quando entrambi i commenti dicono `RESULT: OK` **sullo stesso commit**, che è anche
-   l'ultimo della PR, e la CI è verde, la sessione cloud **toglie la bozza** e lo scrive
+4. Quando i commenti richiesti dicono `RESULT: OK` **sullo stesso commit**, che è anche
+   l'ultimo della PR, e la CI è verde (compreso il job delle prove nel browser), la sessione
+   cloud **toglie la bozza** e lo scrive
    sulla PR. Ogni nuovo commit annulla gli esiti: si riprova.
 5. Il PO unisce solo PR **non in bozza e con CI verde**.
 6. **Eccezione: PR che non toccano l'app** (documentazione, regole, mansionari, skill, modelli
    di GitHub, Dependabot; nessun file in `src/`, `public/`, `index.html`, `package*.json`,
-   `vite.config.ts`, `tsconfig*`, `.github/workflows/`). Non vanno provate nel browser: si
-   aprono già pronte, con la CI verde.
+   `vite.config.ts`, `tsconfig*`, `.github/workflows/`, `e2e/`, `playwright.config.ts`).
+   Non vanno provate nel browser: si aprono già pronte, con la CI verde.
    Così l'aggiornamento di `docs/stato-progetto.md` dopo l'unione non riapre il ciclo
    (ogni commit annullerebbe gli esiti dei tester; corretto l'8/11/2026 dopo la PR #13).
+7. **Quando serve la prova locale (`Local L4: required`)** — decisione del PO dell'8/11/2026,
+   issue #17. Si decide in modo meccanico dall'elenco dei file cambiati
+   (`git diff --name-only origin/main...HEAD`); nel dubbio, `required`.
+   - **Required** se la PR tocca ciò che le prove automatiche non coprono: `vite.config.ts`
+     (proxy), `src/engine/pvgisTmy.ts` (rete), `src/ui/**` e `src/App.tsx` (esclusi i file di
+     test), `src/index.css` e altri stili, `src/main.tsx`, `index.html`, `public/**`,
+     `.claude/launch.json`, le `dependencies` di `package.json` o le versioni di `vite` e
+     `@vitejs/plugin-react`.
+   - **Not required** per tutte le altre PR che toccano l'app (solo motore, solo test, solo
+     CI o dipendenze di sviluppo): bastano il commento del tester cloud e la CI verde,
+     che esegue anche le prove nel browser.
+   - In `/prova-locale` restano solo i controlli che la CI non può o non deve fare: PVGIS
+     vero (firewall), giudizio visivo in chiaro e scuro, Windows.
 
 | Decisione | Motivo |
 |---|---|
@@ -237,7 +263,16 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 | Prova nel browser **in locale, avviata dal PO** con `/prova-locale`, non una sessione locale sempre in ascolto | Una sessione sempre in ascolto (`/loop`) richiede PC acceso, consuma utilizzo anche a vuoto ed eseguirebbe codice sul PC senza chiedere. Avviarla costa al PO pochi secondi e lascia a lui il controllo. Da rivalutare con Remote Control (la sessione cloud "bussa" a quella locale). |
 | La sessione locale prova nella **propria copia di lavoro** (`git checkout --detach <sha>`), mai nella cartella principale | Il server di `.claude/launch.json` parte nella cartella della sessione; la cartella principale deve restare su `main` (da lì si leggono i mansionari). |
 | Le skill del progetto (`.claude/skills/`) si leggono **probabilmente dalla cartella della sessione** (la sua copia di lavoro), non dalla cartella principale come i mansionari | Primo collaudo (PR #13, 8/11/2026): nella sessione locale `/prova-locale` all'inizio non c'era, poi è comparsa, verosimilmente quando la sessione ha portato nella sua copia di lavoro il commit della PR che la conteneva. **Da confermare.** Ora la skill è su `main`: basta che la copia di lavoro parta da un `main` aggiornato (`git pull` nella cartella principale). |
-| Soluzione futura: prove del browser automatiche con **Playwright nella CI** | Allora il verde vorrà dire anche "il browser funziona", senza passi manuali. La prova con PVGIS vero (firewall) resterà manuale: la CI non deve dipendere da un servizio esterno. |
+| Prove del browser automatiche con **Playwright nella CI** (fatto, issue #17): job separato "Browser tests (Playwright)", in parallelo agli altri controlli | Il verde vuol dire anche "il browser funziona sui dati simulati". Job separato: su GitHub si vede subito cosa è fallito e i tempi non si sommano. La prova con PVGIS vero (firewall) resta manuale: la CI non deve dipendere da un servizio esterno. |
+| PVGIS simulato **intercettando le richieste nel browser** (`page.route`, `e2e/fixtures.ts`) con i fixture di Roma e Milano; ogni richiesta non simulata fa fallire la prova | Nessun processo né dipendenza in più; ogni prova sceglie il proprio scenario (errori, firewall, lentezza) e conta le richieste. Scartati: server finto dietro il proxy (secondo processo, da rivalutare in fase 6), MSW (codice di prova dentro l'app), registrazioni HAR (file grandi che duplicano i fixture). Il proxy di Vite resta provato solo a mano. |
+| Le prove girano sulla **build di produzione** (`vite preview`), non sul server di sviluppo | Si prova ciò che verrà pubblicato; in sviluppo React esegue due volte gli effetti e i tempi variano di più (prove instabili). |
+| **Solo Chromium** (decisione del PO dell'8/11/2026) | WebKit di Playwright su Linux non è il Safari dell'iPhone; da rivalutare nella fase mobile con Firefox. I telefoni si simulano con le dimensioni dello schermo (360/390/412 px). |
+| Prove nel browser **senza attese fisse** e **senza nuovi tentativi** (`retries: 0`); orologio controllato (`page.clock`) per l'attesa di 0,8 s; lingua `it-IT` e fuso `Europe/Rome` fissi | Un nuovo tentativo automatico nasconderebbe l'instabilità. Collaudo: 5 esecuzioni consecutive tutte verdi (410/410). |
+| **Niente confronto automatico di screenshot** | I caratteri di Linux (CI) e Windows (PC del PO) differiscono: le immagini di riferimento andrebbero rifatte spesso. Il giudizio visivo resta in `/prova-locale`. |
+| Nel cloud le prove usano il **Chromium preinstallato** (`PW_CHROMIUM_PATH=/opt/pw-browsers/chromium`), nella CI `playwright install --only-shell chromium` | Nel cloud non si scarica nulla; nella CI la versione del browser segue quella di `@playwright/test` nel lock. Niente cache del browser nella CI (la documentazione di Playwright la sconsiglia). |
+| Proprietà con **fast-check**, **seme fisso** 20261108 (`src/test/fastCheckSetup.ts`), numero di casi scelto in ogni test; `FC_SEED` per esplorare in locale; ogni controesempio diventa un caso fisso | Le prove su input casuali restano deterministiche e riproducibili. Scartato `@fast-check/vitest`: una dipendenza in più senza vantaggi reali. |
+| Difetti noti dei casi estremi (irradianza denormale, potenza infinita, scala del grafico con valori estremi) documentati come **fallimenti attesi** (`it.fails`) | Non raggiungibili dall'interfaccia; restano visibili e, quando vengono corretti, il test avvisa di togliere il segno. |
+| `@types/node` fermo alla **24** (Dependabot ignora ≥ 25); i tipi di Node valgono solo per test e configurazione, non per `src/` | Allineato alla versione di Node della CI; l'app gira nel browser e non deve poter usare funzioni di Node. |
 
 | Decisione | Motivo |
 |---|---|
@@ -247,7 +282,7 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 | Modelli misti: **Opus** per TL e SWD, **Sonnet** per gli altri | Le scelte architetturali e il codice del motore sono la parte più delicata; il resto costa meno con Sonnet. |
 | Chi verifica (ST) non corregge il codice di prodotto | Chi scrive e chi controlla restano distinti, come in un gruppo reale. |
 | Mansionari scritti per Irradia, collezioni della community solo come ispirazione | Gli agenti già pronti sono generici, in inglese, e non conoscono le regole del motore. |
-| Il tester (ST) prova l'app nel **browser integrato dell'app desktop** (strumenti `mcp__Claude_Browser__*` nel suo elenco `tools:`); più avanti anche con Playwright | Decisione dell'8/11/2026: il livello 4 (browser) non era eseguibile perché il tester non aveva strumenti del browser. È un browser vero sul PC del PO; Playwright renderà le prove ripetibili e lanciabili dalla CI. |
+| Il tester (ST) prova l'app nel **browser integrato dell'app desktop** (strumenti `mcp__Claude_Browser__*` nel suo elenco `tools:`) per i soli casi manuali (4b), e con **Playwright** nel cloud e nella CI (4a) | Decisione dell'8/11/2026: il livello 4 (browser) non era eseguibile perché il tester non aveva strumenti del browser. Dall'issue #17 la parte ripetibile è automatica. |
 | Skill ufficiali previste: `frontend-design` (Designer), `webapp-testing` (ST) da `anthropics/skills`; `/security-review`, `/code-review`, `/simplify` integrate | Fonti affidabili; da installare e leggere prima di usarle. |
 | **CI su GitHub Actions** (`.github/workflows/ci.yml`): `npm ci`, `npm test`, `npm run lint`, `npm run build` su ogni PR e su ogni push a `main` | Gli stessi controlli richiesti prima di ogni commit, ma su una macchina pulita: un errore non arriva su `main` senza essere visto. I test non usano la rete (fixture e finta `fetch`). |
 | Action **fissate allo SHA del commit** (con la versione in commento) | Un tag può essere spostato da chi controlla l'action, uno SHA no. Dependabot le tiene aggiornate. |
@@ -258,5 +293,5 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 | **Etichette** a gruppi con prefisso, **in inglese** dall'8/11/2026: `type:` (bug, feature, market, technical; viola), `agent:` (swd, designer, st, cicd; blu), `priority:` (high, medium, low; dal rosso al giallo), `status:` (triage, waiting-po, ready, in-progress, blocked; colori "a semaforo"). Create con `gh label create` l'8/11/2026 in italiano (`tipo:`, `agente:`, `priorità:`, `stato:`), rinominate con `gh label edit` (gli issue restano etichettati); le etichette predefinite di GitHub restano | Smistare e ritrovare il lavoro a colpo d'occhio; i modelli di issue e Dependabot le assegnano da soli. |
 | **Protezione del ramo `main`: per ora solo disciplina** (si unisce solo con la CI verde; GitHub non lo impone). Decisione del PO dell'8/11/2026; soluzione a lungo termine nell'issue #7 | Le regole sui rami non sono disponibili su un repository privato col piano gratuito (verificato 8/11/2026: GitHub risponde "Upgrade to GitHub Pro or make this repository public"). Con un solo autore il rischio è basso. Le impostazioni di sicurezza le cambia solo il PO, mai i subagenti. |
 
-Piano completo: vedi la PR che ha introdotto questa sezione. La CI su GitHub è fatta; restano
-i modelli di issue da collaudare e gli strumenti del tester (fast-check, Playwright).
+Piano completo: vedi la PR che ha introdotto questa sezione. CI su GitHub e strumenti del
+tester (fast-check, Playwright) sono fatti; restano i modelli di issue da collaudare.
