@@ -24,5 +24,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  // src/test/ contiene la configurazione dei test (usa `process`, di Node):
+  // la controlla tsconfig.node.json, così i tipi di Node non entrano nel codice dell'app.
+  "include": ["src"],
+  "exclude": ["src/test"]
 }

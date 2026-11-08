@@ -64,3 +64,43 @@ jobs:
       # Include il controllo dei tipi (`tsc -b`) oltre alla build di produzione.
       - name: Build
         run: npm run build
+
+  # Prove nel browser vero (Chromium) contro la build di produzione. In parallelo
+  # al job dei test: non dipende da esso, così i tempi non si sommano.
+  e2e:
+    name: Browser tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Scarica il codice
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepara Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      # Scarica solo Chromium "headless shell" (più leggero del browser completo)
+      # e le librerie di sistema che richiede. La versione è quella decisa da
+      # @playwright/test nel lock: browser e libreria restano allineati.
+      - name: Installa Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      # Le prove non usano PVGIS vero: le risposte sono simulate (CI deterministica
+      # e indipendente da un servizio esterno).
+      - name: Prove nel browser
+        run: npm run test:e2e
+
+      # Rapporto HTML (con traccia e schermate) solo se qualcosa fallisce.
+      # Fissata allo SHA come le altre action.
+      - name: Salva il rapporto
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
