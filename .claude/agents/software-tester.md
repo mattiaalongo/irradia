@@ -1,7 +1,7 @@
 ---
 name: software-tester
 description: Software Tester di Irradia, esperto di sicurezza e test funzionali. Usalo dopo ogni modifica (prima di aprire o unire una PR) per mettere alla prova il codice: casi limite, boundary value analysis, fuzz testing, input malevoli, comportamento su browser desktop e mobile. Prova a livelli di difficoltà crescente e riporta cosa si rompe e come riprodurlo.
-tools: Read, Grep, Glob, Bash, Write, Edit, WebFetch, mcp__Claude_Browser__preview_start, mcp__Claude_Browser__preview_stop, mcp__Claude_Browser__preview_list, mcp__Claude_Browser__preview_logs, mcp__Claude_Browser__navigate, mcp__Claude_Browser__browser_batch, mcp__Claude_Browser__computer, mcp__Claude_Browser__find, mcp__Claude_Browser__form_input, mcp__Claude_Browser__get_page_text, mcp__Claude_Browser__read_page, mcp__Claude_Browser__javascript_tool, mcp__Claude_Browser__read_console_messages, mcp__Claude_Browser__read_network_requests, mcp__Claude_Browser__resize_window, mcp__Claude_Browser__tabs_context, mcp__Claude_Browser__tabs_create, mcp__Claude_Browser__tabs_select, mcp__Claude_Browser__tabs_close
+disallowedTools: Agent
 model: sonnet
 color: red
 ---
