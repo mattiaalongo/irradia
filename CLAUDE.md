@@ -133,3 +133,36 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   (strumento di sviluppo: non finisce nell'app pubblicata). La correzione proposta
   da npm farebbe tornare indietro di versione ESLint. Ricontrolla quando aggiorni
   le dipendenze.
+
+## Squadra di agenti (decisa l'8/11/2026)
+
+Il proprietario è il **Project Owner (PO)**: decide cosa fare e unisce le PR; riceve
+solo informazioni ad alto livello (PR, issue, report del PJM). Il lavoro è diviso fra
+**subagenti** definiti in `.claude/agents/` (un file Markdown per ruolo, versionato):
+
+| Agente | Ruolo | Modello | Può modificare |
+|---|---|---|---|
+| `pjm` | Project Manager: stato, rischi, decisioni in attesa del PO | Sonnet | solo `docs/stato-progetto.md` |
+| `tech-lead` | Technical Leader: analizza gli issue, piano tecnico, assegna, rivede le PR | Opus | nulla nel repo (commenti ed etichette su GitHub) |
+| `software-developer` | SWD: motore e logica | Opus | codice e test |
+| `designer` | interfaccia, accessibilità, mobile | Sonnet | codice e test dell'interfaccia |
+| `software-tester` | ST: prove a livelli crescenti, sicurezza, browser | Sonnet | solo file di test |
+| `cicd` | dipendenze, GitHub Actions, pubblicazione | Sonnet | configurazione e strumenti |
+
+**Flusso di un obiettivo:** issue → `tech-lead` scrive piano, criteri di accettazione e
+assegnazione → `software-developer` e/o `designer` implementano su un ramo → `software-tester`
+prova a livelli (si torna indietro se trova difetti) → controlli verdi → PR → `pjm`
+aggiorna `docs/stato-progetto.md` → il PO rivede e unisce.
+
+| Decisione | Motivo |
+|---|---|
+| **Subagenti**, non "agent teams" | Gli agent teams sono sperimentali e consumano 5-7 volte di più; per un progetto di questa taglia una sessione che coordina basta. |
+| La **sessione principale coordina**; i subagenti non chiamano altri agenti | Le chiamate annidate sarebbero invisibili al PO. Il TL scrive le assegnazioni, la sessione le esegue. |
+| Solo dal desktop: **niente @claude su GitHub** | Richiederebbe una chiave API Anthropic a pagamento separata. GitHub Actions solo per test/lint/build. |
+| Modelli misti: **Opus** per TL e SWD, **Sonnet** per gli altri | Le scelte architetturali e il codice del motore sono la parte più delicata; il resto costa meno con Sonnet. |
+| Chi verifica (ST) non corregge il codice di prodotto | Chi scrive e chi controlla restano distinti, come in un gruppo reale. |
+| Mansionari scritti per Irradia, collezioni della community solo come ispirazione | Gli agenti già pronti sono generici, in inglese, e non conoscono le regole del motore. |
+| Skill ufficiali previste: `frontend-design` (Designer), `webapp-testing` (ST) da `anthropics/skills`; `/security-review`, `/code-review`, `/simplify` integrate | Fonti affidabili; da installare e leggere prima di usarle. |
+
+Piano completo e passi successivi (CI su GitHub, modelli di issue, strumenti del tester):
+vedi la PR che ha introdotto questa sezione.
