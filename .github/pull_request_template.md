@@ -1,27 +1,42 @@
 <!--
-  Regola di CLAUDE.md: la descrizione è ad ALTO LIVELLO, senza dettagli tecnici
-  (il Project Owner li chiede se servono). Frasi brevi, linguaggio semplice.
+  Project rule (CLAUDE.md): the description is HIGH LEVEL, no technical details
+  (the Project Owner asks for them if needed). Short sentences, plain language.
+  English first; the same text in Italian goes in the collapsible block at the end.
 -->
 
-## Cosa è stato fatto
-<!-- In poche righe: cosa cambia per chi usa l'app o lavora al progetto. -->
+## What was done
+<!-- In a few lines: what changes for people using the app or working on the project. -->
 
-## Perché serviva
-<!-- Il problema o l'issue che risolve (es. "Chiude #12"). -->
+## Why it was needed
+<!-- The problem or issue it solves (e.g. "Closes #12" — GitHub only recognises English keywords). -->
 
-## Rischi
-<!-- Cosa potrebbe andare storto dopo l'unione; "nessuno" se davvero nessuno. -->
+## Risks
+<!-- What could go wrong after merging; "none" only if there really are none. -->
 
-## A cosa prestare attenzione
-<!-- Cosa guardare nella revisione; decisioni che spettano al PO. -->
+## What to look at
+<!-- What to check during review; decisions that belong to the Project Owner. -->
 
-## Prossimi passi
-<!-- Cosa viene dopo questa PR. -->
+## Next steps
+<!-- What comes after this PR. -->
 
 ---
 
-Testato dal Software Tester: livelli superati: <!-- es. 1, 2, 3 / non necessario perché ... -->
+Tested by the Software Tester: levels passed: <!-- e.g. 1, 2, 3 cloud; 4 local / not needed because ... -->
 
-- [ ] `npm test` verde
-- [ ] `npm run lint` verde
-- [ ] `npm run build` verde
+- [ ] `npm test` green
+- [ ] `npm run lint` green
+- [ ] `npm run build` green
+
+<details><summary>🇮🇹 Versione italiana</summary>
+
+## Cosa è stato fatto
+
+## Perché serviva
+
+## Rischi
+
+## A cosa prestare attenzione
+
+## Prossimi passi
+
+</details>

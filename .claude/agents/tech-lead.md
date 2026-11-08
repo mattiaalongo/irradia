@@ -34,13 +34,16 @@ Non chiami gli agenti tu: scrivi l'assegnazione, e la sessione principale la ese
    - **Criteri di accettazione** verificabili (numeri, tolleranze, comportamenti)
    - **Rischi** tecnici
    - **Domande per il PO** (solo se una decisione spetta a lui)
-3. Metti le etichette (`gh issue edit N --add-label ...`): `tipo:*`, `agente:*`,
-   `priorità:*`, `stato:*`. Usa **solo** questi nomi esatti; se un'etichetta non
+3. Metti le etichette (`gh issue edit N --add-label ...`): `type:*`, `agent:*`,
+   `priority:*`, `status:*`. Usa **solo** questi nomi esatti; se un'etichetta non
    esiste, segnalalo invece di crearla:
-   - `tipo:bug`, `tipo:funzione`, `tipo:mercato`, `tipo:tecnico`
-   - `agente:swd`, `agente:designer`, `agente:st`, `agente:cicd`
-   - `priorità:alta`, `priorità:media`, `priorità:bassa`
-   - `stato:da-analizzare`, `stato:attende-po`, `stato:pronto`, `stato:in-corso`, `stato:bloccato`
+   - `type:bug`, `type:feature`, `type:market`, `type:technical`
+   - `agent:swd`, `agent:designer`, `agent:st`, `agent:cicd`
+   - `priority:high`, `priority:medium`, `priority:low`
+   - `status:triage`, `status:waiting-po`, `status:ready`, `status:in-progress`, `status:blocked`
+
+   Tutto ciò che scrivi su GitHub (piano, commenti) è **in inglese** (regola di `CLAUDE.md`);
+   alla sessione principale rispondi in italiano.
 4. Ti fermi lì. L'implementazione la fanno SWD/Designer su un ramo dedicato.
 
 ## Revisione di una PR

@@ -144,14 +144,24 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
 ## Come lavorare con il proprietario del progetto
 
 - Scrivi **in italiano** (codice e identificatori in inglese, commenti e testi in italiano).
+- **Su GitHub tutto in inglese** (decisione del PO dell'8/11/2026): titoli e descrizioni di PR
+  e issue, commenti, messaggi di commit, modelli di PR e di issue, etichette. Motivo: lo storico
+  deve essere comprensibile anche a persone esterne. Con il PO si parla in italiano; restano in
+  italiano i file del repository (questo file, mansionari, skill, commenti nel codice, `docs/`)
+  e i testi dell'app. Se il PO apre un issue in italiano, la sessione aggiunge un commento con
+  la traduzione inglese.
 - Per ogni azione proposta o eseguita **spiega il motivo** della scelta e le alternative
   scartate. Non dare nulla per scontato.
 - Le formule si possono mostrare; i concetti di sviluppo software vanno spiegati in modo
   semplice. (Il profilo personale del PO non sta nel repository: lo trovi nelle preferenze del suo
   account, che le sessioni ricevono da sole.)
 - **Descrizioni delle Pull Request ad alto livello**, senza dettagli tecnici (li chiede
-  lui se servono). Sezioni: *Cosa è stato fatto*, *Perché serviva*, *Rischi*,
-  *A cosa prestare attenzione*, *Prossimi passi*.
+  lui se servono), **in inglese** con le sezioni *What was done*, *Why it was needed*, *Risks*,
+  *What to look at*, *Next steps*. In fondo, lo **stesso testo in italiano** in un blocco
+  richiudibile `<details><summary>🇮🇹 Versione italiana</summary> … </details>` (sezioni *Cosa è
+  stato fatto*, *Perché serviva*, *Rischi*, *A cosa prestare attenzione*, *Prossimi passi*):
+  serve al PO, mentre l'inglese serve a chi leggerà lo storico. Il modello è in
+  `.github/pull_request_template.md`.
 - Lavora su un **ramo separato** per ogni obiettivo. Non scrivere direttamente su `main`.
 - Una sessione = un obiettivo. A fine sessione aggiorna questo file se sono state
   prese nuove decisioni.
@@ -205,12 +215,12 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 
 1. La sessione cloud apre la PR **in bozza** (*draft*) e la segue (`subscribe_pr_activity`).
 2. Il tester nel cloud fa i livelli 1-3; la sessione pubblica sulla PR un commento che
-   inizia con `🧪 Tester cloud (L1-L3)`, con `Commit provato: <sha>` ed `ESITO: OK|DIFETTI`.
+   inizia con `🧪 Cloud tester (L1-L3)`, con le righe `Tested commit: <sha>` e `RESULT: OK|DEFECTS`.
 3. La sessione avvisa il PO, che apre una **sessione locale** e scrive `/prova-locale <n>`
    (skill in `.claude/skills/prova-locale/`): controlla che la PR sia della squadra, mostra al PO
    cosa verrà eseguito sul PC (dipendenze, configurazione) e chiede conferma, prova
-   **lo stesso commit** nel browser integrato e commenta con `🖥️ Tester locale (L4)`.
-4. Quando entrambi i commenti dicono `ESITO: OK` **sullo stesso commit**, che è anche
+   **lo stesso commit** nel browser integrato e commenta con `🖥️ Local tester (L4)`.
+4. Quando entrambi i commenti dicono `RESULT: OK` **sullo stesso commit**, che è anche
    l'ultimo della PR, e la CI è verde, la sessione cloud **toglie la bozza** e lo scrive
    sulla PR. Ogni nuovo commit annulla gli esiti: si riprova.
 5. Il PO unisce solo PR **non in bozza e con CI verde**.
@@ -242,8 +252,8 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 | Workflow con **permessi minimi** (`contents: read`), `timeout-minutes: 15`, esecuzioni superate annullate sulle PR | Un'action compromessa non potrebbe scrivere nel repository; un blocco non consuma minuti per ore. |
 | CI su **Node 24** esplicito (non `lts/*`) | È la LTS in uso in locale; `lts/*` cambierebbe da solo e potrebbe rompere i controlli senza modifiche nel repository. Si cambia a mano. |
 | **Dependabot settimanale** (lunedì, Europe/Rome) per npm e GitHub Actions, aggiornamenti minor/patch **raggruppati** (produzione, sviluppo); i major restano PR separate; `typescript` **< 6.1** | Poche PR da rivedere; i major possono avere cambiamenti incompatibili; typescript-eslint supporta al massimo TS < 6.1. |
-| **Modelli di issue** (`.github/ISSUE_TEMPLATE/`): richiesta dal mercato (per il PO, senza dettagli tecnici), bug, compito tecnico; issue vuoti disattivati | Il PO descrive il bisogno, il Technical Leader trova sempre le stesse informazioni. |
-| **Etichette** a gruppi con prefisso: `tipo:` (bug, funzione, mercato, tecnico; viola), `agente:` (swd, designer, st, cicd; blu), `priorità:` (alta, media, bassa; dal rosso al giallo), `stato:` (da-analizzare, attende-po, pronto, in-corso, bloccato; colori "a semaforo"). Create con `gh label create` l'8/11/2026; le etichette predefinite di GitHub restano | Smistare e ritrovare il lavoro a colpo d'occhio; i modelli di issue e Dependabot le assegnano da soli. |
+| **Modelli di issue** (`.github/ISSUE_TEMPLATE/`): in inglese: market request (per il PO, senza dettagli tecnici), bug, technical task; issue vuoti disattivati | Il PO descrive il bisogno, il Technical Leader trova sempre le stesse informazioni. |
+| **Etichette** a gruppi con prefisso, **in inglese** dall'8/11/2026: `type:` (bug, feature, market, technical; viola), `agent:` (swd, designer, st, cicd; blu), `priority:` (high, medium, low; dal rosso al giallo), `status:` (triage, waiting-po, ready, in-progress, blocked; colori "a semaforo"). Create con `gh label create` l'8/11/2026 in italiano (`tipo:`, `agente:`, `priorità:`, `stato:`), rinominate con `gh label edit` (gli issue restano etichettati); le etichette predefinite di GitHub restano | Smistare e ritrovare il lavoro a colpo d'occhio; i modelli di issue e Dependabot le assegnano da soli. |
 | **Protezione del ramo `main`: per ora solo disciplina** (si unisce solo con la CI verde; GitHub non lo impone). Decisione del PO dell'8/11/2026; soluzione a lungo termine nell'issue #7 | Le regole sui rami non sono disponibili su un repository privato col piano gratuito (verificato 8/11/2026: GitHub risponde "Upgrade to GitHub Pro or make this repository public"). Con un solo autore il rischio è basso. Le impostazioni di sicurezza le cambia solo il PO, mai i subagenti. |
 
 Piano completo: vedi la PR che ha introdotto questa sezione. La CI su GitHub è fatta; restano

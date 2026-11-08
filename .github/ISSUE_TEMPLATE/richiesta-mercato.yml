@@ -1,51 +1,51 @@
-name: Richiesta dal mercato
-description: Un bisogno degli utenti da far analizzare alla squadra (senza dettagli tecnici).
-title: "[Mercato] "
-# Etichette: tipo (chi lo ha aperto) e stato (il Technical Leader parte da qui).
-labels: ["tipo:mercato", "stato:da-analizzare"]
+name: Market request
+description: A user need for the team to analyse (no technical details needed).
+title: "[Market] "
+# Labels: type (who opened it) and status (the Technical Leader starts from here).
+labels: ["type:market", "status:triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Descrivi il bisogno dal punto di vista dell'utente. Non serve dire *come*
-        realizzarlo: ci pensa il Technical Leader, che risponderà con un piano.
+        Describe the need from the user's point of view. There is no need to say *how*
+        to build it: the Technical Leader will answer with a plan.
   - type: textarea
-    id: problema
+    id: problem
     attributes:
-      label: Problema dell'utente
-      description: Chi è l'utente, cosa vuole fare, cosa glielo impedisce oggi.
-      placeholder: "Un privato con tetto a due falde vuole confrontare ... ma ..."
+      label: User problem
+      description: Who the user is, what they want to do, what stops them today.
+      placeholder: "A homeowner with a two-pitch roof wants to compare ... but ..."
     validations:
       required: true
   - type: textarea
-    id: valore
+    id: value
     attributes:
-      label: Valore o beneficio atteso
-      description: Cosa cambia per l'utente (e per il progetto) se il problema è risolto.
+      label: Expected value or benefit
+      description: What changes for the user (and for the project) once the problem is solved.
     validations:
       required: true
   - type: dropdown
-    id: urgenza
+    id: urgency
     attributes:
-      label: Urgenza
-      description: Serve a ordinare il lavoro.
+      label: Urgency
+      description: Used to order the work.
       options:
-        - "Alta: blocca l'uso dell'app o un obiettivo imminente"
-        - "Media: importante, può aspettare la prossima fase"
-        - "Bassa: migliorativa, quando c'è tempo"
+        - "High: blocks the use of the app or an upcoming goal"
+        - "Medium: important, can wait for the next phase"
+        - "Low: an improvement, when there is time"
     validations:
       required: true
   - type: textarea
-    id: risolto
+    id: solved
     attributes:
-      label: Come capire che è risolto
-      description: Cosa vedrebbe o riuscirebbe a fare l'utente, a cose fatte.
+      label: How to tell it is solved
+      description: What the user would see or be able to do once it is done.
     validations:
       required: true
   - type: textarea
-    id: note
+    id: notes
     attributes:
-      label: Note (facoltative)
-      description: Esempi, collegamenti, idee, dubbi.
+      label: Notes (optional)
+      description: Examples, links, ideas, doubts.
     validations:
       required: false
