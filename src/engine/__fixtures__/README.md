@@ -60,3 +60,63 @@ curl -sS -f -o pvgis-pvcalc-roma-s35.json \
 
 Perché il 2020: è un anno recente e completo; l'anno tipo usa anche aprile, giugno e
 dicembre 2020, ma la validazione oraria non dipende da questa coincidenza.
+
+## Irradiazione mensile reale di ogni anno (MRcalc), Roma
+
+Serve a confrontare ogni mese dell'anno tipo con il **mese reale** da cui PVGIS l'ha preso
+(stesso anno), invece che con la media 2005-2023: così la "fortuna" dell'anno tipo (mesi
+più o meno soleggiati della media) non si confonde con gli errori del nostro calcolo.
+Letto da `pvgisMonthly.ts`.
+
+| File | Cosa contiene | Scaricato il | Byte | SHA-256 |
+|---|---|---|---|---|
+| `pvgis-mrcalc-roma-s35.json` | Ogni mese 2005-2023: irradiazione sul piano orizzontale H(h)_m e sul piano **Sud inclinato 35°** H(i)_m, kWh/m², senza orizzonte | 8/11/2026 | 14 331 | `3902419cc1e4149084ffdbbaabb676b8b65a9d419fb7b3daddb202a758b35b56` |
+
+Piano Sud 35° come `pvgis-pvcalc-roma-s35.json` e `pvgis-series-roma-2020-s35.json`: lo
+stesso piano permette di verificare che la media dei 19 anni di MRcalc coincida con H(i)_m
+di PVcalc (controllo in `pvgisMonthly.test.ts`). MRcalc non ha il parametro `aspect`: il suo
+piano inclinato è sempre rivolto all'equatore (Sud).
+
+```bash
+B="https://re.jrc.ec.europa.eu/api/v5_3"; L="lat=41.9028&lon=12.4964"
+curl -sS -f -A irradia-dev-proxy -o pvgis-mrcalc-roma-s35.json \
+  "$B/MRcalc?$L&horirrad=1&selectrad=1&angle=35&usehorizon=0&startyear=2005&endyear=2023&outputformat=json"
+```
+
+## Milano (issue #10)
+
+Scaricati l'**8/11/2026**, Milano (lat 45,4642 — lon 9,19), banche dati PVGIS-SARAH3 ed
+ERA5, **senza ombre dell'orizzonte** (`usehorizon=0`; per questo punto PVGIS dà lo stesso
+E_y con e senza orizzonte: l'orizzonte è nullo). È la località del caso segnalato
+nell'issue #10 (8,6 kWp a Sud 35°, +3,5 % rispetto a PVcalc): una seconda città, più a
+Nord e con più luce diffusa di Roma, su cui ripetere tutta la validazione.
+
+| File | Cosa contiene | Byte | SHA-256 |
+|---|---|---|---|
+| `pvgis-tmy-milano.json` | Anno meteorologico tipo (TMY) | 1 269 321 | `8649623946ba97f11238ad8374438bfa0925f6a44361717d5e2c794a8b929ffa` |
+| `pvgis-series-milano-2020-horiz.json` | Anno 2020 ora per ora, piano **orizzontale** | 967 555 | `19d536f9e5d88a0fa165895a1181e6adfe7f22aab75de93f80719bb76ab74e91` |
+| `pvgis-series-milano-2020-s35.json` | Anno 2020 ora per ora, **Sud 35°**, 1 kWp, perdite 14 % | 1 059 574 | `9e946a14e6a3e9c38f0f5df300dbb0abd587204a81ee969f61de793e26668e29` |
+| `pvgis-pvcalc-milano-s35.json` | PVcalc, media 2005-2023, **8,6 kWp**, Sud 35°, **perdite 0** (l'impianto dell'issue) | 5 239 | `6ff14ac3634607cb1fafefa337d72185c8f717be432cbff87043d89305805e74` |
+| `pvgis-mrcalc-milano-s35.json` | MRcalc 2005-2023, orizzontale e Sud 35° | 14 290 | `a945111de3045d7f6f548c74ec8224d8ea3719447f58476671903619bcb473ec` |
+
+```bash
+B="https://re.jrc.ec.europa.eu/api/v5_3"; L="lat=45.4642&lon=9.19"; UA="irradia-dev-proxy"
+curl -sS -f -A $UA -o pvgis-tmy-milano.json "$B/tmy?$L&outputformat=json"
+curl -sS -f -A $UA -o pvgis-series-milano-2020-horiz.json \
+  "$B/seriescalc?$L&startyear=2020&endyear=2020&usehorizon=0&angle=0&aspect=0&components=1&outputformat=json"
+curl -sS -f -A $UA -o pvgis-series-milano-2020-s35.json \
+  "$B/seriescalc?$L&startyear=2020&endyear=2020&usehorizon=0&pvcalculation=1&peakpower=1&loss=14&angle=35&aspect=0&components=1&outputformat=json"
+curl -sS -f -A $UA -o pvgis-pvcalc-milano-s35.json \
+  "$B/PVcalc?$L&usehorizon=0&peakpower=8.6&loss=0&angle=35&aspect=0&outputformat=json"
+curl -sS -f -A $UA -o pvgis-mrcalc-milano-s35.json \
+  "$B/MRcalc?$L&horirrad=1&selectrad=1&angle=35&usehorizon=0&startyear=2005&endyear=2023&outputformat=json"
+```
+
+**User-Agent:** dall'8/11/2026 il firewall di PVGIS può rispondere a curl con una pagina
+HTML "Request Rejected" **con codice 200** (quindi `-f` non la ferma): per questo i comandi
+usano `-A irradia-dev-proxy`, come il proxy di Vite. Dopo lo scaricamento controllare che il
+file sia JSON e che l'hash coincida. Richieste troppo ravvicinate possono ricevere una
+risposta vuota: basta riprovare dopo qualche secondo.
+
+Se riscaricandoli il contenuto è diverso, il JRC ha aggiornato le banche dati: vanno
+rimisurati i valori attesi in `simulate.test.ts` (compreso il valore di non regressione).
