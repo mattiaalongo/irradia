@@ -189,8 +189,30 @@ solo informazioni ad alto livello (PR, issue, report del PJM). Il lavoro è divi
 
 **Flusso di un obiettivo:** issue → `tech-lead` scrive piano, criteri di accettazione e
 assegnazione → `software-developer` e/o `designer` implementano su un ramo → `software-tester`
-prova a livelli (si torna indietro se trova difetti) → controlli verdi → PR → `pjm`
-aggiorna `docs/stato-progetto.md` → il PO rivede e unisce.
+prova a livelli (si torna indietro se trova difetti) → PR **in bozza** → prova nel browser
+in locale → la bozza viene tolta → `pjm` aggiorna `docs/stato-progetto.md` → il PO rivede e unisce.
+
+**Regola della PR in bozza (decisa l'8/11/2026).** La CI su GitHub non conosce il giudizio
+del tester; questa regola fa sì che una PR "pronta" significhi "provata anche nel browser".
+
+1. La sessione cloud apre la PR **in bozza** (*draft*) e la segue (`subscribe_pr_activity`).
+2. Il tester nel cloud fa i livelli 1-3; la sessione pubblica sulla PR un commento che
+   inizia con `🧪 Tester cloud (L1-L3)`, con `Commit provato: <sha>` ed `ESITO: OK|DIFETTI`.
+3. La sessione avvisa il PO, che apre una **sessione locale** e scrive `/prova-locale <n>`
+   (skill in `.claude/skills/prova-locale/`): controlla che la PR sia della squadra, prova
+   **lo stesso commit** nel browser integrato e commenta con `🖥️ Tester locale (L4)`.
+4. Quando entrambi i commenti dicono `ESITO: OK` **sullo stesso commit**, che è anche
+   l'ultimo della PR, e la CI è verde, la sessione cloud **toglie la bozza** e lo scrive
+   sulla PR. Ogni nuovo commit annulla gli esiti: si riprova.
+5. Il PO unisce solo PR **non in bozza e con CI verde**.
+
+| Decisione | Motivo |
+|---|---|
+| Esito del tester come **commento sulla PR** + bozza, non come "check" di GitHub | Un check scritto da un agente sarebbe un'auto-certificazione non ripetibile e richiederebbe permessi di scrittura in più. Il segno verde della CI resta solo per test, lint e build. |
+| Prova nel browser **in locale, avviata dal PO** con `/prova-locale`, non una sessione locale sempre in ascolto | Una sessione sempre in ascolto (`/loop`) richiede PC acceso, consuma utilizzo anche a vuoto ed eseguirebbe codice sul PC senza chiedere. Avviarla costa al PO pochi secondi e lascia a lui il controllo. Da rivalutare con Remote Control (la sessione cloud "bussa" a quella locale). |
+| La sessione locale prova nella **propria copia di lavoro** (`git checkout --detach <sha>`), mai nella cartella principale | Il server di `.claude/launch.json` parte nella cartella della sessione; la cartella principale deve restare su `main` (da lì si leggono i mansionari). |
+| La prima volta `/prova-locale` va sostituito da un messaggio che dice di leggere la skill dal ramo della PR | Finché la PR che la introduce non è unita, la skill non c'è su `main`. Che le skill si leggano dalla cartella principale come i mansionari è un'ipotesi, **da verificare** al primo collaudo. |
+| Soluzione futura: prove del browser automatiche con **Playwright nella CI** | Allora il verde vorrà dire anche "il browser funziona", senza passi manuali. La prova con PVGIS vero (firewall) resterà manuale: la CI non deve dipendere da un servizio esterno. |
 
 | Decisione | Motivo |
 |---|---|

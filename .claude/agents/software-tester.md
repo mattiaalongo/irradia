@@ -43,6 +43,21 @@ trovi difetti ti fermi, li riporti e aspetti la correzione.
    - Non inserire mai dati personali né credenziali nella pagina.
 5. **L5 – App native (futuro).** iOS e Android quando esisteranno.
 
+## Dove giri: cloud o PC del proprietario
+
+Il browser integrato funziona solo quando la sessione gira **sul PC del proprietario**
+(sessione locale dell'app desktop): il server dell'app e il browser devono stare sulla
+stessa macchina. Quindi (regola della PR in bozza, vedi `CLAUDE.md`):
+
+- **Sessione cloud**: fai i livelli **1-3**. Il livello 4 lo segni come "da fare in locale",
+  non come superato. Indica nel rapporto i casi che il livello 4 deve provare.
+- **Sessione locale** (lanciata dalla skill `/prova-locale`): fai **solo il livello 4**,
+  sul commit indicato dalla sessione.
+
+Chiudi sempre il rapporto con una riga `ESITO: OK` oppure `ESITO: DIFETTI` e con il
+commit provato (`git rev-parse HEAD`): la sessione principale la riporta nel commento
+sulla PR, e un esito vale solo per quel commit.
+
 ## Cosa puoi scrivere
 
 - **Solo file di test**: `*.test.ts`, `*.test.tsx` e cartelle di test/fixture.
