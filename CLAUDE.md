@@ -70,6 +70,7 @@ src/
     __fixtures__/  Risposte reali di PVGIS usate dai test (origine e hash nel README.md)
                    e `pvgisSeries.ts`, lettore delle serie orarie usato solo dai test.
   App.tsx      Interfaccia (per ora una pagina di prova della posizione solare).
+.github/       CI (workflows/ci.yml), Dependabot, modelli di issue e di PR.
 ```
 
 Il motore deve restare **separato** dall'interfaccia: così si testa da solo e
@@ -133,6 +134,8 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   (strumento di sviluppo: non finisce nell'app pubblicata). La correzione proposta
   da npm farebbe tornare indietro di versione ESLint. Ricontrolla quando aggiorni
   le dipendenze.
+- **Dependabot proporrà ESLint e `minimatch`** (aggiornamenti settimanali): prima di unire,
+  verifica che `npm audit` migliori davvero e che ESLint non torni indietro di versione.
 
 ## Squadra di agenti (decisa l'8/11/2026)
 
@@ -163,6 +166,14 @@ aggiorna `docs/stato-progetto.md` → il PO rivede e unisce.
 | Chi verifica (ST) non corregge il codice di prodotto | Chi scrive e chi controlla restano distinti, come in un gruppo reale. |
 | Mansionari scritti per Irradia, collezioni della community solo come ispirazione | Gli agenti già pronti sono generici, in inglese, e non conoscono le regole del motore. |
 | Skill ufficiali previste: `frontend-design` (Designer), `webapp-testing` (ST) da `anthropics/skills`; `/security-review`, `/code-review`, `/simplify` integrate | Fonti affidabili; da installare e leggere prima di usarle. |
+| **CI su GitHub Actions** (`.github/workflows/ci.yml`): `npm ci`, `npm test`, `npm run lint`, `npm run build` su ogni PR e su ogni push a `main` | Gli stessi controlli richiesti prima di ogni commit, ma su una macchina pulita: un errore non arriva su `main` senza essere visto. I test non usano la rete (fixture e finta `fetch`). |
+| Action **fissate allo SHA del commit** (con la versione in commento) | Un tag può essere spostato da chi controlla l'action, uno SHA no. Dependabot le tiene aggiornate. |
+| Workflow con **permessi minimi** (`contents: read`), `timeout-minutes: 15`, esecuzioni superate annullate sulle PR | Un'action compromessa non potrebbe scrivere nel repository; un blocco non consuma minuti per ore. |
+| CI su **Node 24** esplicito (non `lts/*`) | È la LTS in uso in locale; `lts/*` cambierebbe da solo e potrebbe rompere i controlli senza modifiche nel repository. Si cambia a mano. |
+| **Dependabot settimanale** (lunedì, Europe/Rome) per npm e GitHub Actions, aggiornamenti minor/patch **raggruppati** (produzione, sviluppo); i major restano PR separate; `typescript` **< 6.1** | Poche PR da rivedere; i major possono avere cambiamenti incompatibili; typescript-eslint supporta al massimo TS < 6.1. |
+| **Modelli di issue** (`.github/ISSUE_TEMPLATE/`): richiesta dal mercato (per il PO, senza dettagli tecnici), bug, compito tecnico; issue vuoti disattivati | Il PO descrive il bisogno, il Technical Leader trova sempre le stesse informazioni. |
+| **Etichette** a gruppi con prefisso: `tipo:` (bug, funzione, mercato, tecnico; viola), `agente:` (swd, designer, st, cicd; blu), `priorità:` (alta, media, bassa; dal rosso al giallo), `stato:` (da-analizzare, attende-po, pronto, in-corso, bloccato; colori "a semaforo"). Create con `gh label create` l'8/11/2026; le etichette predefinite di GitHub restano | Smistare e ritrovare il lavoro a colpo d'occhio; i modelli di issue e Dependabot le assegnano da soli. |
+| **Protezione del ramo `main`** (PR obbligatoria, controllo CI verde) applicata dal PO a mano | Sono impostazioni di sicurezza del repository: i subagenti non le toccano. |
 
-Piano completo e passi successivi (CI su GitHub, modelli di issue, strumenti del tester):
-vedi la PR che ha introdotto questa sezione.
+Piano completo: vedi la PR che ha introdotto questa sezione. La CI su GitHub è fatta; restano
+i modelli di issue da collaudare e gli strumenti del tester (fast-check, Playwright).

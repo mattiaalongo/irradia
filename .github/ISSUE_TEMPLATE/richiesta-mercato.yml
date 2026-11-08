@@ -1,0 +1,51 @@
+name: Richiesta dal mercato
+description: Un bisogno degli utenti da far analizzare alla squadra (senza dettagli tecnici).
+title: "[Mercato] "
+# Etichette: tipo (chi lo ha aperto) e stato (il Technical Leader parte da qui).
+labels: ["tipo:mercato", "stato:da-analizzare"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Descrivi il bisogno dal punto di vista dell'utente. Non serve dire *come*
+        realizzarlo: ci pensa il Technical Leader, che risponderà con un piano.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema dell'utente
+      description: Chi è l'utente, cosa vuole fare, cosa glielo impedisce oggi.
+      placeholder: "Un privato con tetto a due falde vuole confrontare ... ma ..."
+    validations:
+      required: true
+  - type: textarea
+    id: valore
+    attributes:
+      label: Valore o beneficio atteso
+      description: Cosa cambia per l'utente (e per il progetto) se il problema è risolto.
+    validations:
+      required: true
+  - type: dropdown
+    id: urgenza
+    attributes:
+      label: Urgenza
+      description: Serve a ordinare il lavoro.
+      options:
+        - "Alta: blocca l'uso dell'app o un obiettivo imminente"
+        - "Media: importante, può aspettare la prossima fase"
+        - "Bassa: migliorativa, quando c'è tempo"
+    validations:
+      required: true
+  - type: textarea
+    id: risolto
+    attributes:
+      label: Come capire che è risolto
+      description: Cosa vedrebbe o riuscirebbe a fare l'utente, a cose fatte.
+    validations:
+      required: true
+  - type: textarea
+    id: note
+    attributes:
+      label: Note (facoltative)
+      description: Esempi, collegamenti, idee, dubbi.
+    validations:
+      required: false
