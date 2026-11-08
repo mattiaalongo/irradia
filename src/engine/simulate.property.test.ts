@@ -14,6 +14,11 @@ const CITIES = [
   { name: 'Milano', tmy: parsePvgisTmy(milanoRaw) },
 ]
 
+// Timeout esplicito (Vitest: 5000 ms di default) per i test di proprietà che qui durano più di ~100 ms.
+// Regola: >= 20x la durata misurata nel cloud, arrotondata (qui 30 s; il più lento misura ~1,2 s).
+// Motivo: macchine più lente o cariche (PC Windows del PO ~4,4x, runner CI a 2 core, più processi in
+// parallelo) superavano i 5 s. Resta comunque un limite: una lentezza vera (cicli infiniti, costo
+// per caso esploso) fallisce lo stesso.
 const TIMEOUT_MS = 30_000
 
 const tilt = fc.double({ min: 0, max: 90, noNaN: true })

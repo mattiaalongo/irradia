@@ -10,6 +10,13 @@ type Json = Record<string, any> // eslint-disable-line @typescript-eslint/no-exp
 const raw = romaRaw as unknown as Json
 const RAW_TEXT = JSON.stringify(raw)
 
+// Timeout esplicito (Vitest: 5000 ms di default) per i test di proprietà che qui durano più di ~100 ms.
+// Regola: >= 20x la durata misurata nel cloud, arrotondata (qui 30 s; il più lento misura ~1,2 s).
+// Motivo: macchine più lente o cariche (PC Windows del PO ~4,4x, runner CI a 2 core, più processi in
+// parallelo) superavano i 5 s. Resta comunque un limite: una lentezza vera (cicli infiniti, costo
+// per caso esploso) fallisce lo stesso.
+const TIMEOUT_MS = 30_000
+
 /** Un punto del JSON che il lettore controlla, con il modo di raggiungerlo. */
 interface Target {
   nome: string
@@ -98,7 +105,7 @@ describe('parsePvgisTmy (proprietà)', () => {
       { numRuns: 50 },
     )
     expect(() => parsePvgisTmy(raw)).not.toThrow() // il fixture è stato ripristinato
-  })
+  }, TIMEOUT_MS)
 
   it('data impossibile, fuori sequenza o righe mancanti/duplicate/scambiate → PvgisError', () => {
     const rows = raw.outputs.tmy_hourly as Json[]
@@ -124,7 +131,7 @@ describe('parsePvgisTmy (proprietà)', () => {
       ),
       { numRuns: 50 },
     )
-  })
+  }, TIMEOUT_MS)
 
   it('qualunque JSON arbitrario → PvgisError, mai TypeError', () => {
     fc.assert(
@@ -179,7 +186,7 @@ describe('fetchPvgisTmy (proprietà, con fetch finta)', () => {
       }),
       { numRuns: 100 },
     )
-  })
+  }, TIMEOUT_MS)
 
   it('con un corpo arbitrario (testo, JSON qualsiasi) e uno stato qualsiasi → sempre PvgisError', async () => {
     await fc.assert(
