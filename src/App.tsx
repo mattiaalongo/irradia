@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import type { Tmy } from './engine/pvgisTmy'
 import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult } from './engine/simulate'
+import AnnualTotal from './ui/AnnualTotal'
 import MonthlyChart from './ui/MonthlyChart'
 import NumberSlider from './ui/NumberSlider'
 import { cardinalDirection, formatNumber } from './ui/format'
@@ -85,13 +86,12 @@ export default function App() {
 
           {simulation && 'year' in simulation && tmy && (
             <div className={stale ? 'stale' : undefined}>
-              <p className="hero-label">Produzione stimata in un anno</p>
-              <p className="hero">
-                {formatNumber(simulation.year.annualKwh)} <span className="hero-unit">kWh</span>
-              </p>
-              <p className="hero-detail">
-                Impianto da {formatNumber(simulation.year.peakPowerKwp, 2)} kWp ({panelCount} × {panelPowerWp} Wp)
-              </p>
+              <AnnualTotal
+                annualKwh={simulation.year.annualKwh}
+                peakPowerKwp={simulation.year.peakPowerKwp}
+                panelCount={panelCount}
+                panelPowerWp={panelPowerWp}
+              />
 
               <h2>Produzione mese per mese (kWh)</h2>
               <MonthlyChart monthlyKwh={simulation.year.monthlyKwh} />

@@ -29,13 +29,14 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | `TmyHour.time` è l'istante UTC **reale** (anno da cui PVGIS ha preso quel mese) | È il dato originale; nessun anno fittizio inventato. |
 | Unità nel nome dei campi (`ghiWm2`, `airTemperatureC`, …) e verificate sul `meta` di PVGIS | Impossibile confonderle; se PVGIS le cambia, la lettura fallisce invece di sbagliare. |
 | Versione API PVGIS `v5_3` fissata in `engine/pvgisTmy.ts` | Il parser è verificato su quel formato. |
-| Test su risposte PVGIS reali salvate in `engine/__fixtures__/` (Roma centro) | Deterministici e senza rete. Coordinate di una città, non di casa del proprietario. |
+| Test su risposte PVGIS reali salvate in `engine/__fixtures__/` (Roma centro e Milano) | Deterministici e senza rete. Coordinate di una città, non di casa del proprietario. |
 | Modello di produzione = quello di PVGIS 5.3: diffusa di **Muneer** (forma r.sun), albedo 0,2, riflessione sul vetro **Martin-Ruiz** (a_r 0,16), temperatura **Faiman** (U0 26,9, U1 6,2, moduli liberi c-Si), potenza **Huld 2011** (coefficienti "pvgis5") | Con lo stesso modello il confronto con PVGIS misura i nostri errori, non la differenza tra modelli. |
 | Faiman riceve l'irradianza sul piano **prima** delle perdite del vetro | È la definizione originale (piranometro sul piano) e riproduce meglio PVGIS. |
 | Diffusa: **niente** formula speciale di r.sun per sole < 5,7°; sin h limitato a sin 1° | Misurato: PVGIS 5.3 non la applica (con essa ~10 W/m² di scarto). Limite come in pvlib (haydavies). |
 | Riflessa: modello isotropo con GHI anche quando il sole è dietro il pannello | Fisicamente corretto. PVGIS in quel caso usa solo la diffusa: +1,7 % di riflessa per un pannello a Est (≈ 0,2 kWh/m² l'anno). |
 | **Nessun effetto spettrale** e **nessuna ombra dell'orizzonte** (per ora) | Lo spettrale di PVGIS non è riproducibile in modo verificabile (±1 %). Le ombre arriveranno con la mappa. |
-| Validazione su due livelli: ora per ora contro `seriescalc` 2020 (somme ±0,2-1 %), anno tipo contro `PVcalc` (annuo ±2 %, mesi entro 2 deviazioni standard di PVGIS) | Il primo isola ogni formula; il secondo è il risultato che vede l'utente. L'anno tipo non è la media 2005-2023, quindi i mesi possono differire anche del 13 %. |
+| Validazione su **due località** (Roma, Milano) e tre livelli: ora per ora contro `seriescalc` 2020 (somme: diretta ±0,3 %, diffusa ±0,2 %, riflessa ±0,2-0,3 %, energia ±1 %); ogni mese dell'anno tipo contro **lo stesso mese reale** di `MRcalc` (H(i) ±1 %, GHI ±0,5 %, somma annua ±0,5 %); conversione luce → energia contro `PVcalc` (E/H(i) ±1,5 %; energia corretta per la luce dell'anno tipo: anno ±1,5 %, mesi ±4 %). Più un valore di non regressione (Milano 8,6 kWp, Sud 35°, perdite 0: 14.122 ± 1 kWh) | L'anno tipo non è la media 2005-2023: confrontarlo direttamente con PVcalc mescola la "fortuna" dei 12 mesi scelti con gli errori del motore (a Milano +3,5 % di energia e settembre a 2,03 deviazioni standard con il motore corretto). MRcalc misura quella fortuna da sola, quindi nessun test può fallire per essa. Tolto il controllo "mesi entro 2 deviazioni standard" (issue #10). |
+| Milano (45,4642 N, 9,19 E), Sud 35°: +3,5 % di energia rispetto a PVcalc **non è un errore** (issue #10, verificato 8/11/2026) | L'anno tipo ha il 3,9-4,0 % di luce sul piano in più della media 2005-2023. Orizzonte nullo (PVGIS dà lo stesso E_y con e senza). Conversione E/H(i) −0,5 % rispetto a PVGIS: effetto spettrale non modellato (PVGIS l_spec +1,16 %). Ora per ora contro `seriescalc` 2020: energia +0,42 %. |
 | Mesi aggregati sul mese UTC di `TmyHour.time` | Il TMY è composto per mesi UTC: così ogni ora resta nel mese da cui proviene. |
 | Fase 4: mostrare **totale annuo + grafico a barre dei 12 mesi** (il motore calcola anche le 8760 ore, per ora non mostrate) | Scelta del proprietario (8/11/2026, domanda sulla PR #3): basta per dimensionare e fa vedere la differenza estate/inverno senza complicare la pagina. |
 | Grafico in **SVG scritto a mano** (`ui/MonthlyChart.tsx`), niente librerie di grafici | 12 barre sono un disegno semplice: zero dipendenze, testi in italiano e tema chiaro/scuro sotto controllo, si testa senza browser. Scartate Recharts (~100 kB, da personalizzare comunque), Chart.js (canvas, meno accessibile), D3/visx (sovradimensionati). Da rivalutare se i grafici diventano molti o interattivi. |
@@ -45,6 +46,7 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | Memoria dei download **in RAM** (`ui/tmyLoader.ts`), chiave = coordinate arrotondate a 4 decimali (≈ 11 m); si salva la richiesta in corso, non solo il risultato | Tornando a una posizione già vista non si riscarica nulla; due richieste uguali ravvicinate ne fanno una. Niente localStorage: un TMY pesa 1-2 MB, il limite è ~5 MB. |
 | Orientamento nell'interfaccia = **azimut 0-359° da Nord** (convenzione del motore) con il punto cardinale scritto accanto | Scelta del proprietario (8/11/2026): nessuna conversione, nessun rischio di errori di segno. |
 | Slider di latitudine 34-72° e longitudine −25-45° (Europa); i campi accettano lo stesso intervallo | Area di lavoro del progetto. Con la mappa (fase 5) la posizione si sceglierà cliccando. |
+| Sotto il totale annuo una **nota fissa** (`ui/AnnualTotal.tsx`): il totale è su un anno tipo di mesi reali 2005-2023, il sito PVGIS (PVcalc) mostra la media di tutti gli anni e le cifre possono differire di qualche punto percentuale. Niente numeri di città; colore secondario (contrasto 5,1:1 chiaro, 6,3:1 scuro) | A Milano anno tipo e PVcalc differiscono del +3,5 % senza errori del motore: senza spiegazione chi confronta app e sito penserebbe a un errore. Decisione del PO dell'8/11/2026 (issue #10). Gli anni sono scritti fissi perché valgono per PVGIS `v5_3`: **se si cambia versione di PVGIS, aggiornare la nota.** |
 | Numeri sempre con separatore delle migliaia ("6.498"), anche a 4 cifre | Per default l'italiano scrive "6498" ma "11.077": incoerente sulla stessa pagina. Per questo `tsconfig.app.json` include `ES2023.Intl` (solo tipi). |
 
 **Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
@@ -59,6 +61,9 @@ inoltra lo User-Agent del browser (es. Chrome), PVGIS risponde con una pagina HT
 "Request Rejected" **con codice 200**. Il proxy di Vite si presenta quindi come
 `irradia-dev-proxy`. Lo stesso dovrà fare l'intermediario di produzione (fase 6).
 I test del parser non lo rilevano perché usano risposte salvate: va provato nel browser.
+Per scaricare i fixture con curl serve `-A irradia-dev-proxy`: senza, il firewall può rispondere
+HTML con codice 200 e `-f` non lo ferma. Controllare sempre che il file sia JSON e il suo hash.
+Richieste ravvicinate possono avere una risposta vuota: riprovare dopo qualche secondo.
 
 **Altezza del sole di PVGIS (verificato 8/11/2026):** il campo `H_sun` delle serie di PVGIS
 differisce dal nostro calcolo NOAA fino a 0,4° anche col sole alto: è un'approssimazione
@@ -81,13 +86,15 @@ src/
     irradiance.ts  Trasposizione: luce diretta, diffusa e riflessa sul piano dei pannelli.
     pvModule.ts    Riflessione sul vetro, temperatura e rendimento dei moduli.
     simulate.ts    Simulazione oraria e kWh mensili/annuali (`simulateHour`, `simulateYear`).
-    __fixtures__/  Risposte reali di PVGIS usate dai test (origine e hash nel README.md)
-                   e `pvgisSeries.ts`, lettore delle serie orarie usato solo dai test.
+    __fixtures__/  Risposte reali di PVGIS usate dai test (Roma centro e Milano; origine e
+                   hash nel README.md), `pvgisSeries.ts` (serie orarie) e `pvgisMonthly.ts`
+                   (MRcalc, irradiazione mensile di ogni anno): lettori usati solo dai test.
   ui/          Pezzi dell'interfaccia (React) e loro logica pura, con i test accanto.
     config.ts      Indirizzo di PVGIS visto dal browser e attesa prima del download.
     tmyLoader.ts   Memoria dei download dell'anno tipo (TypeScript puro).
     useTmy.ts      Hook React: anno tipo per una posizione (attesa, annullamento, stato).
     NumberSlider.tsx  Campo numerico + slider collegati; `parseInput.ts` controlla il testo.
+    AnnualTotal.tsx   Totale annuo con la nota sull'anno tipo.
     MonthlyChart.tsx  Grafico a barre dei 12 mesi in SVG; `chartScale.ts` sceglie le tacche.
     format.ts      Numeri in italiano, nomi dei mesi, punti cardinali.
   App.tsx      Pagina principale: parametri a sinistra, totale annuo e grafico a destra.
@@ -106,7 +113,7 @@ si riuserà identico nell'app mobile.
 4. Potenza DC con perdite per temperatura delle celle, poi perdite di sistema
    (`engine/pvModule.ts`, `engine/simulate.ts`) — **fatto**
 5. Aggregazione: kWh mensili e annuali (`engine/simulate.ts`) — **fatto**
-6. Validazione contro PVGIS (`engine/simulate.test.ts`) — **fatto**
+6. Validazione contro PVGIS (`engine/simulate.test.ts`, Roma e Milano) — **fatto**
 
 ## Convenzioni del motore (OBBLIGATORIE)
 

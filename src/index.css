@@ -103,6 +103,7 @@ input[aria-invalid='true'] { border-color: var(--error); }
 .hero { margin: 0; font-size: 56px; font-weight: 600; line-height: 1.1; }
 .hero-unit { font-size: 24px; font-weight: 400; color: var(--muted); }
 .hero-detail { margin: 4px 0 0; color: var(--muted); }
+.hero-note { margin: 8px 0 0; max-width: 60ch; font-size: 13px; line-height: 1.45; color: var(--muted); }
 
 .source { margin-top: 24px; font-size: 13px; color: var(--muted); }
 
