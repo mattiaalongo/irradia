@@ -37,6 +37,7 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | **Nessun effetto spettrale** e **nessuna ombra dell'orizzonte** (per ora) | Lo spettrale di PVGIS non è riproducibile in modo verificabile (±1 %). Le ombre arriveranno con la mappa. |
 | Validazione su due livelli: ora per ora contro `seriescalc` 2020 (somme ±0,2-1 %), anno tipo contro `PVcalc` (annuo ±2 %, mesi entro 2 deviazioni standard di PVGIS) | Il primo isola ogni formula; il secondo è il risultato che vede l'utente. L'anno tipo non è la media 2005-2023, quindi i mesi possono differire anche del 13 %. |
 | Mesi aggregati sul mese UTC di `TmyHour.time` | Il TMY è composto per mesi UTC: così ogni ora resta nel mese da cui proviene. |
+| Fase 4: mostrare **totale annuo + grafico a barre dei 12 mesi** (il motore calcola anche le 8760 ore, per ora non mostrate) | Scelta del proprietario (8/11/2026, domanda sulla PR #3): basta per dimensionare e fa vedere la differenza estate/inverno senza complicare la pagina. |
 
 **Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
 leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
