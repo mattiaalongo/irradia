@@ -1,43 +1,43 @@
-name: Compito tecnico
-description: Lavoro interno (manutenzione, miglioramento tecnico) senza una richiesta diretta degli utenti.
-title: "[Tecnico] "
-labels: ["tipo:tecnico", "stato:da-analizzare"]
+name: Technical task
+description: Internal work (maintenance, technical improvement) without a direct request from users.
+title: "[Technical] "
+labels: ["type:technical", "status:triage"]
 body:
   - type: textarea
-    id: obiettivo
+    id: goal
     attributes:
-      label: Obiettivo
-      description: Cosa deve essere vero a lavoro finito.
+      label: Goal
+      description: What must be true when the work is done.
     validations:
       required: true
   - type: textarea
-    id: motivo
+    id: reason
     attributes:
-      label: Motivo
-      description: Perché serve ora e cosa succede se non lo facciamo.
+      label: Reason
+      description: Why it is needed now and what happens if we don't do it.
     validations:
       required: true
   - type: textarea
-    id: criteri
+    id: criteria
     attributes:
-      label: Criteri di accettazione
-      description: Elenco verificabile, uno per riga.
+      label: Acceptance criteria
+      description: Verifiable list, one per line.
       placeholder: |
         - [ ] ...
         - [ ] ...
     validations:
       required: true
   - type: textarea
-    id: parti
+    id: parts
     attributes:
-      label: Parti coinvolte
-      description: Moduli, file, strumenti o ruoli interessati.
+      label: Parts involved
+      description: Modules, files, tools or roles affected.
     validations:
       required: false
   - type: textarea
-    id: rischi
+    id: risks
     attributes:
-      label: Rischi
-      description: Cosa potrebbe rompersi o andare storto.
+      label: Risks
+      description: What could break or go wrong.
     validations:
       required: false

@@ -1,52 +1,52 @@
 name: Bug
-description: Qualcosa non funziona o dà un risultato sbagliato.
+description: Something does not work or gives a wrong result.
 title: "[Bug] "
-labels: ["tipo:bug", "stato:da-analizzare"]
+labels: ["type:bug", "status:triage"]
 body:
   - type: textarea
-    id: cosa-succede
+    id: what-happens
     attributes:
-      label: Cosa succede
-      description: Descrivi il comportamento osservato (aggiungi uno screenshot se utile).
+      label: What happens
+      description: Describe the observed behaviour (add a screenshot if useful).
     validations:
       required: true
   - type: textarea
-    id: atteso
+    id: expected
     attributes:
-      label: Cosa ti aspettavi
+      label: What you expected
     validations:
       required: true
   - type: textarea
-    id: passi
+    id: steps
     attributes:
-      label: Passi per riprodurlo
+      label: Steps to reproduce
       placeholder: |
-        1. Apri l'app
-        2. Imposta ...
-        3. Guarda ...
+        1. Open the app
+        2. Set ...
+        3. Look at ...
     validations:
       required: true
   - type: textarea
-    id: parametri
+    id: parameters
     attributes:
-      label: Parametri usati
-      description: Posizione (lat/lon), inclinazione, orientamento, numero e potenza dei pannelli, perdite.
+      label: Parameters used
+      description: Location (lat/lon), tilt, orientation, number and power of panels, losses.
     validations:
       required: true
   - type: input
-    id: ambiente
+    id: environment
     attributes:
-      label: Browser e dispositivo
-      placeholder: "Es. Chrome 130 su Windows 11; Safari su iPhone 15"
+      label: Browser and device
+      placeholder: "E.g. Chrome 130 on Windows 11; Safari on iPhone 15"
     validations:
       required: true
   - type: dropdown
-    id: gravita
+    id: severity
     attributes:
-      label: Gravità
+      label: Severity
       options:
-        - "Bloccante: l'app non si usa o dà risultati sbagliati"
-        - "Seria: funziona male ma si aggira"
-        - "Lieve: difetto estetico o di poco conto"
+        - "Blocking: the app cannot be used or gives wrong results"
+        - "Serious: works badly but there is a workaround"
+        - "Minor: cosmetic or small defect"
     validations:
       required: true

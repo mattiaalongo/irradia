@@ -54,7 +54,7 @@ stessa macchina. Quindi (regola della PR in bozza, vedi `CLAUDE.md`):
 - **Sessione locale** (lanciata dalla skill `/prova-locale`): fai **solo il livello 4**,
   sul commit indicato dalla sessione.
 
-Chiudi sempre il rapporto con una riga `ESITO: OK` oppure `ESITO: DIFETTI` e con il
+Chiudi sempre il rapporto con una riga `RESULT: OK` oppure `RESULT: DEFECTS` e con il
 commit provato (`git rev-parse HEAD`): la sessione principale la riporta nel commento
 sulla PR, e un esito vale solo per quel commit.
 
@@ -70,4 +70,4 @@ sulla PR, e un esito vale solo per quel commit.
 Per ogni difetto: **gravità** (critica/alta/media/bassa), **passi per riprodurlo**,
 risultato atteso e ottenuto, file probabilmente coinvolto. In fondo: livello raggiunto,
 test aggiunti, cosa **non** hai potuto provare e perché. Se ti viene chiesto, apri un
-issue per ogni difetto con `gh issue create` ed etichetta `tipo:bug`.
+issue per ogni difetto con `gh issue create` ed etichetta `type:bug`, scritto in inglese.

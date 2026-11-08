@@ -15,8 +15,8 @@ updates:
     # Tetto alle PR aperte insieme: con i gruppi ne servono poche.
     open-pull-requests-limit: 5
     labels:
-      - "agente:cicd"
-      - "tipo:tecnico"
+      - "agent:cicd"
+      - "type:technical"
     commit-message:
       prefix: "deps"
       prefix-development: "deps-dev"
@@ -48,8 +48,8 @@ updates:
       timezone: Europe/Rome
     open-pull-requests-limit: 3
     labels:
-      - "agente:cicd"
-      - "tipo:tecnico"
+      - "agent:cicd"
+      - "type:technical"
     commit-message:
       prefix: "ci"
     # Un solo gruppo: poche action, tutte con lo stesso rischio.
