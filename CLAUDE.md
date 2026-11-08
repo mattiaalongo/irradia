@@ -30,6 +30,13 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | Unità nel nome dei campi (`ghiWm2`, `airTemperatureC`, …) e verificate sul `meta` di PVGIS | Impossibile confonderle; se PVGIS le cambia, la lettura fallisce invece di sbagliare. |
 | Versione API PVGIS `v5_3` fissata in `engine/pvgisTmy.ts` | Il parser è verificato su quel formato. |
 | Test su risposte PVGIS reali salvate in `engine/__fixtures__/` (Roma centro) | Deterministici e senza rete. Coordinate di una città, non di casa del proprietario. |
+| Modello di produzione = quello di PVGIS 5.3: diffusa di **Muneer** (forma r.sun), albedo 0,2, riflessione sul vetro **Martin-Ruiz** (a_r 0,16), temperatura **Faiman** (U0 26,9, U1 6,2, moduli liberi c-Si), potenza **Huld 2011** (coefficienti "pvgis5") | Con lo stesso modello il confronto con PVGIS misura i nostri errori, non la differenza tra modelli. |
+| Faiman riceve l'irradianza sul piano **prima** delle perdite del vetro | È la definizione originale (piranometro sul piano) e riproduce meglio PVGIS. |
+| Diffusa: **niente** formula speciale di r.sun per sole < 5,7°; sin h limitato a sin 1° | Misurato: PVGIS 5.3 non la applica (con essa ~10 W/m² di scarto). Limite come in pvlib (haydavies). |
+| Riflessa: modello isotropo con GHI anche quando il sole è dietro il pannello | Fisicamente corretto. PVGIS in quel caso usa solo la diffusa: +1,7 % di riflessa per un pannello a Est (≈ 0,2 kWh/m² l'anno). |
+| **Nessun effetto spettrale** e **nessuna ombra dell'orizzonte** (per ora) | Lo spettrale di PVGIS non è riproducibile in modo verificabile (±1 %). Le ombre arriveranno con la mappa. |
+| Validazione su due livelli: ora per ora contro `seriescalc` 2020 (somme ±0,2-1 %), anno tipo contro `PVcalc` (annuo ±2 %, mesi entro 2 deviazioni standard di PVGIS) | Il primo isola ogni formula; il secondo è il risultato che vede l'utente. L'anno tipo non è la media 2005-2023, quindi i mesi possono differire anche del 13 %. |
+| Mesi aggregati sul mese UTC di `TmyHour.time` | Il TMY è composto per mesi UTC: così ogni ora resta nel mese da cui proviene. |
 
 **Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
 leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
@@ -37,6 +44,10 @@ leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
 Endpoint dell'anno tipo: `https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=..&lon=..&outputformat=json`.
 In sviluppo il proxy di Vite (`vite.config.ts`) inoltra `/api/pvgis/...` a
 `https://re.jrc.ec.europa.eu/api/...`: usare `baseUrl: '/api/pvgis'`.
+
+**Altezza del sole di PVGIS (verificato 8/11/2026):** il campo `H_sun` delle serie di PVGIS
+differisce dal nostro calcolo NOAA fino a 0,4° anche col sole alto: è un'approssimazione
+di PVGIS. Spiega buona parte degli scarti orari della diretta col sole basso.
 
 **Orari di PVGIS (verificato 7/11/2026):** `time(UTC)` è l'inizio dell'ora in UTC; le
 irradianze si riferiscono a `time + irradiance_time_offset` (≈ 10 minuti, campo
@@ -52,7 +63,11 @@ le dipendenze all'avvio. Le sessioni di questo progetto vanno avviate su quell'a
 src/
   engine/      Motore di calcolo: TypeScript puro, nessuna dipendenza da React o dal DOM.
                Ogni modulo ha il suo file *.test.ts accanto.
-    __fixtures__/  Risposte reali di PVGIS usate dai test (origine e hash nel README.md).
+    irradiance.ts  Trasposizione: luce diretta, diffusa e riflessa sul piano dei pannelli.
+    pvModule.ts    Riflessione sul vetro, temperatura e rendimento dei moduli.
+    simulate.ts    Simulazione oraria e kWh mensili/annuali (`simulateHour`, `simulateYear`).
+    __fixtures__/  Risposte reali di PVGIS usate dai test (origine e hash nel README.md)
+                   e `pvgisSeries.ts`, lettore delle serie orarie usato solo dai test.
   App.tsx      Interfaccia (per ora una pagina di prova della posizione solare).
 ```
 
@@ -64,10 +79,11 @@ si riuserà identico nell'app mobile.
 1. Posizione del sole (`engine/solarPosition.ts`, algoritmo NOAA/Meeus) — **fatto**
 2. Dati di irraggiamento orari di un anno tipo (TMY) da PVGIS: GHI, DNI, DHI, temperatura,
    vento (`engine/pvgisTmy.ts`) — **fatto**
-3. Trasposizione sul piano dei pannelli (inclinazione + orientamento)
-4. Potenza DC con perdite per temperatura delle celle, poi perdite di sistema (inverter, cavi)
-5. Aggregazione: kWh mensili e annuali
-6. Validazione contro il calcolo PV di PVGIS per gli stessi parametri
+3. Trasposizione sul piano dei pannelli (`engine/irradiance.ts`) — **fatto**
+4. Potenza DC con perdite per temperatura delle celle, poi perdite di sistema
+   (`engine/pvModule.ts`, `engine/simulate.ts`) — **fatto**
+5. Aggregazione: kWh mensili e annuali (`engine/simulate.ts`) — **fatto**
+6. Validazione contro PVGIS (`engine/simulate.test.ts`) — **fatto**
 
 ## Convenzioni del motore (OBBLIGATORIE)
 
