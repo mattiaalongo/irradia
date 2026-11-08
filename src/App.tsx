@@ -1,64 +1,111 @@
-import { useMemo, useState } from 'react'
-import { solarPosition } from './engine/solarPosition'
+import { useDeferredValue, useMemo, useState } from 'react'
+import type { Tmy } from './engine/pvgisTmy'
+import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult } from './engine/simulate'
+import MonthlyChart from './ui/MonthlyChart'
+import NumberSlider from './ui/NumberSlider'
+import { cardinalDirection, formatNumber } from './ui/format'
+import { useTmy } from './ui/useTmy'
 
-/** Converte "AAAA-MM-GGTHH:MM" interpretandolo come ora UTC. */
-function parseUtc(value: string): Date {
-  return new Date(`${value}:00Z`)
+/** Simula l'anno; restituisce un messaggio invece di bloccare la pagina se il motore rifiuta i parametri. */
+function runSimulation(tmy: Tmy | null, system: PvSystem): { year: YearResult } | { error: string } | null {
+  if (!tmy) return null
+  try {
+    return { year: simulateYear(tmy, system) }
+  } catch (err) {
+    return { error: (err as Error).message }
+  }
 }
-
-function nowUtcInputValue(): string {
-  return new Date().toISOString().slice(0, 16)
-}
-
-const fmt = (x: number, digits = 2) => x.toLocaleString('it-IT', { maximumFractionDigits: digits, minimumFractionDigits: digits })
 
 export default function App() {
-  const [latitude, setLatitude] = useState(41.9028) // Roma
+  // Posizione: è l'UNICO ingresso del download dei dati PVGIS (vedi useTmy).
+  const [latitude, setLatitude] = useState(41.9028) // Roma centro, come le fixture dei test
   const [longitude, setLongitude] = useState(12.4964)
-  const [dateTime, setDateTime] = useState(nowUtcInputValue)
 
-  const result = useMemo(() => {
-    try {
-      return { ok: true as const, p: solarPosition(parseUtc(dateTime), latitude, longitude) }
-    } catch (err) {
-      return { ok: false as const, message: (err as Error).message }
-    }
-  }, [dateTime, latitude, longitude])
+  // Impianto: entra solo nel calcolo locale, non provoca mai download.
+  const [tiltDeg, setTiltDeg] = useState(35)
+  const [azimuthDeg, setAzimuthDeg] = useState(180)
+  const [panelCount, setPanelCount] = useState(10)
+  const [panelPowerWp, setPanelPowerWp] = useState(430)
+  const [systemLossPct, setSystemLossPct] = useState(DEFAULT_SYSTEM_LOSS_PCT)
+
+  const tmyState = useTmy(latitude, longitude)
+  const tmy = tmyState.status === 'ready' ? tmyState.tmy : tmyState.previousTmy
+
+  const system = useMemo<PvSystem>(
+    () => ({ tiltDeg, azimuthDeg, panelCount, panelPowerWp, systemLossPct }),
+    [tiltDeg, azimuthDeg, panelCount, panelPowerWp, systemLossPct],
+  )
+  // Il calcolo (~15 ms) può restare un attimo indietro rispetto allo slider, che così resta fluido.
+  const deferredSystem = useDeferredValue(system)
+  const simulation = useMemo(() => runSimulation(tmy, deferredSystem), [tmy, deferredSystem])
+
+  const stale = tmyState.status !== 'ready'
 
   return (
     <main>
-      <h1>Irradia</h1>
-      <p className="subtitle">Posizione del sole — primo modulo del motore di calcolo</p>
+      <header>
+        <h1>Irradia</h1>
+        <p className="subtitle">Stima della produzione di un impianto fotovoltaico</p>
+      </header>
 
-      <section className="inputs">
-        <label>
-          Latitudine (°, Nord positiva)
-          <input type="number" step="0.0001" value={latitude} onChange={(e) => setLatitude(e.target.valueAsNumber)} />
-        </label>
-        <label>
-          Longitudine (°, Est positiva)
-          <input type="number" step="0.0001" value={longitude} onChange={(e) => setLongitude(e.target.valueAsNumber)} />
-        </label>
-        <label>
-          Data e ora (UTC)
-          <input type="datetime-local" value={dateTime} onChange={(e) => setDateTime(e.target.value)} />
-        </label>
-      </section>
+      <div className="layout">
+        <section className="params" aria-label="Parametri">
+          <fieldset>
+            <legend>Posizione</legend>
+            <NumberSlider label="Latitudine (Nord)" unit="°" value={latitude} onChange={setLatitude}
+              min={34} max={72} step={0.0001} decimals={4} />
+            <NumberSlider label="Longitudine (Est)" unit="°" value={longitude} onChange={setLongitude}
+              min={-25} max={45} step={0.0001} decimals={4} />
+          </fieldset>
 
-      {result.ok ? (
-        <table>
-          <tbody>
-            <tr><th>Elevazione apparente</th><td>{fmt(result.p.apparentElevation)}°</td></tr>
-            <tr><th>Elevazione geometrica</th><td>{fmt(result.p.elevation)}°</td></tr>
-            <tr><th>Azimut (da Nord, orario)</th><td>{fmt(result.p.azimuth)}°</td></tr>
-            <tr><th>Declinazione</th><td>{fmt(result.p.declination)}°</td></tr>
-            <tr><th>Equazione del tempo</th><td>{fmt(result.p.equationOfTime)} min</td></tr>
-            <tr><th>Angolo orario</th><td>{fmt(result.p.hourAngle)}°</td></tr>
-          </tbody>
-        </table>
-      ) : (
-        <p className="error">Input non valido: {result.message}</p>
-      )}
+          <fieldset>
+            <legend>Pannelli</legend>
+            <NumberSlider label="Inclinazione" unit="°" value={tiltDeg} onChange={setTiltDeg}
+              min={0} max={90} step={1} hint={(v) => (v === 0 ? 'Piatti' : v === 90 ? 'Verticali' : '0° = piatti, 90° = verticali')} />
+            <NumberSlider label="Orientamento (azimut da Nord)" unit="°" value={azimuthDeg} onChange={setAzimuthDeg}
+              min={0} max={359} step={1} hint={(v) => `Verso ${cardinalDirection(v)} · 90° = Est, 180° = Sud, 270° = Ovest`} />
+            <NumberSlider label="Numero di pannelli" value={panelCount} onChange={setPanelCount}
+              min={1} max={50} step={1} />
+            <NumberSlider label="Potenza di un pannello" unit="Wp" value={panelPowerWp} onChange={setPanelPowerWp}
+              min={100} max={700} step={5} />
+            <NumberSlider label="Perdite di sistema" unit="%" value={systemLossPct} onChange={setSystemLossPct}
+              min={0} max={30} step={0.5} decimals={1} hint={() => 'Inverter, cavi, sporcizia… PVGIS suggerisce 14 %'} />
+          </fieldset>
+        </section>
+
+        <section className="results" aria-label="Risultati" aria-busy={tmyState.status === 'loading'}>
+          {tmyState.status === 'loading' && <p className="status">Scarico l'anno tipo da PVGIS…</p>}
+          {tmyState.status === 'error' && (
+            <p className="status error" role="alert">
+              Dati non disponibili per questa posizione. {tmyState.error.message}
+            </p>
+          )}
+
+          {simulation && 'error' in simulation && <p className="status error">{simulation.error}</p>}
+
+          {simulation && 'year' in simulation && tmy && (
+            <div className={stale ? 'stale' : undefined}>
+              <p className="hero-label">Produzione stimata in un anno</p>
+              <p className="hero">
+                {formatNumber(simulation.year.annualKwh)} <span className="hero-unit">kWh</span>
+              </p>
+              <p className="hero-detail">
+                Impianto da {formatNumber(simulation.year.peakPowerKwp, 2)} kWp ({panelCount} × {panelPowerWp} Wp)
+              </p>
+
+              <h2>Produzione mese per mese (kWh)</h2>
+              <MonthlyChart monthlyKwh={simulation.year.monthlyKwh} />
+
+              <p className="source">
+                Dati: anno meteorologico tipo PVGIS (JRC, Commissione Europea), {tmy.radiationDb} e {tmy.meteoDb},
+                mesi scelti tra il {tmy.yearMin} e il {tmy.yearMax}; punto {formatNumber(tmy.latitude, 4)}° N,{' '}
+                {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.
+                Non sono considerate le ombre dell'orizzonte né l'effetto spettrale (±1 %).
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   )
 }

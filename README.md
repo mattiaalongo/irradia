@@ -13,7 +13,7 @@ sulla base di modelli fisici documentati e di dati storici di irraggiamento.
 | 1. Fondamenta del progetto + posizione del sole | ✅ |
 | 2. Dati di irraggiamento (PVGIS) | ✅ |
 | 3. Modello di produzione e validazione | ✅ |
-| 4. Interfaccia con slider e grafici | ⏳ |
+| 4. Interfaccia con slider e grafici | ✅ |
 | 5. Scelta della posizione su mappa | ⏳ |
 | 6. Pubblicazione online | ⏳ |
 
@@ -46,7 +46,14 @@ npm install
 npm run dev
 ```
 
-Poi apri http://localhost:5173.
+Poi apri http://localhost:5173: imposta posizione e pannelli con i campi o gli slider e
+vedi subito la produzione annua e il grafico dei 12 mesi. I dati di PVGIS si scaricano
+da soli quando cambi la posizione (qualche secondo) e restano in memoria finché la
+pagina è aperta.
+
+Nota: il download dei dati funziona solo con `npm run dev`, che fa da intermediario verso
+PVGIS (PVGIS non permette al browser di leggerlo direttamente). Per la versione pubblicata
+servirà un intermediario lato server (fase 6).
 
 ## Test
 

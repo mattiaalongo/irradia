@@ -38,6 +38,14 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | Validazione su due livelli: ora per ora contro `seriescalc` 2020 (somme ±0,2-1 %), anno tipo contro `PVcalc` (annuo ±2 %, mesi entro 2 deviazioni standard di PVGIS) | Il primo isola ogni formula; il secondo è il risultato che vede l'utente. L'anno tipo non è la media 2005-2023, quindi i mesi possono differire anche del 13 %. |
 | Mesi aggregati sul mese UTC di `TmyHour.time` | Il TMY è composto per mesi UTC: così ogni ora resta nel mese da cui proviene. |
 | Fase 4: mostrare **totale annuo + grafico a barre dei 12 mesi** (il motore calcola anche le 8760 ore, per ora non mostrate) | Scelta del proprietario (8/11/2026, domanda sulla PR #3): basta per dimensionare e fa vedere la differenza estate/inverno senza complicare la pagina. |
+| Grafico in **SVG scritto a mano** (`ui/MonthlyChart.tsx`), niente librerie di grafici | 12 barre sono un disegno semplice: zero dipendenze, testi in italiano e tema chiaro/scuro sotto controllo, si testa senza browser. Scartate Recharts (~100 kB, da personalizzare comunque), Chart.js (canvas, meno accessibile), D3/visx (sovradimensionati). Da rivalutare se i grafici diventano molti o interattivi. |
+| Regole del grafico dalla guida *dataviz*: barre ≤ 24 px con cima arrotondata, valori scritti solo sul mese massimo e minimo, valore di ogni mese al passaggio del mouse/Tab, **tabella dei valori** sempre disponibile | Il colore delle barre sul fondo chiaro ha contrasto 2,7:1 (< 3:1): la tabella garantisce che i valori siano leggibili comunque. Colore del tema scuro (`#c4810f`) scelto col validatore della guida. |
+| Download PVGIS **automatico dopo 0,8 s** dall'ultima modifica della posizione; la richiesta superata viene annullata | Scelta del proprietario (8/11/2026). Scrivendo una coordinata cifra per cifra parte una sola richiesta. |
+| Lo stato è diviso: **posizione** → `useTmy` (unico motivo di download); **impianto** → solo `simulateYear` (~15 ms, locale) | I parametri dei pannelli non possono provocare download. Scartati: Web Worker (inutile per 15 ms) e lo sfruttare la proporzionalità a kWp/perdite (errore silenzioso se un giorno il modello cambia). |
+| Memoria dei download **in RAM** (`ui/tmyLoader.ts`), chiave = coordinate arrotondate a 4 decimali (≈ 11 m); si salva la richiesta in corso, non solo il risultato | Tornando a una posizione già vista non si riscarica nulla; due richieste uguali ravvicinate ne fanno una. Niente localStorage: un TMY pesa 1-2 MB, il limite è ~5 MB. |
+| Orientamento nell'interfaccia = **azimut 0-359° da Nord** (convenzione del motore) con il punto cardinale scritto accanto | Scelta del proprietario (8/11/2026): nessuna conversione, nessun rischio di errori di segno. |
+| Slider di latitudine 34-72° e longitudine −25-45° (Europa); i campi accettano lo stesso intervallo | Area di lavoro del progetto. Con la mappa (fase 5) la posizione si sceglierà cliccando. |
+| Numeri sempre con separatore delle migliaia ("6.498"), anche a 4 cifre | Per default l'italiano scrive "6498" ma "11.077": incoerente sulla stessa pagina. Per questo `tsconfig.app.json` include `ES2023.Intl` (solo tipi). |
 
 **Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
 leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
@@ -69,7 +77,14 @@ src/
     simulate.ts    Simulazione oraria e kWh mensili/annuali (`simulateHour`, `simulateYear`).
     __fixtures__/  Risposte reali di PVGIS usate dai test (origine e hash nel README.md)
                    e `pvgisSeries.ts`, lettore delle serie orarie usato solo dai test.
-  App.tsx      Interfaccia (per ora una pagina di prova della posizione solare).
+  ui/          Pezzi dell'interfaccia (React) e loro logica pura, con i test accanto.
+    config.ts      Indirizzo di PVGIS visto dal browser e attesa prima del download.
+    tmyLoader.ts   Memoria dei download dell'anno tipo (TypeScript puro).
+    useTmy.ts      Hook React: anno tipo per una posizione (attesa, annullamento, stato).
+    NumberSlider.tsx  Campo numerico + slider collegati; `parseInput.ts` controlla il testo.
+    MonthlyChart.tsx  Grafico a barre dei 12 mesi in SVG; `chartScale.ts` sceglie le tacche.
+    format.ts      Numeri in italiano, nomi dei mesi, punti cardinali.
+  App.tsx      Pagina principale: parametri a sinistra, totale annuo e grafico a destra.
 ```
 
 Il motore deve restare **separato** dall'interfaccia: così si testa da solo e
@@ -126,6 +141,14 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
 - Lavora su un **ramo separato** per ogni obiettivo. Non scrivere direttamente su `main`.
 - Una sessione = un obiettivo. A fine sessione aggiorna questo file se sono state
   prese nuove decisioni.
+- **Passaggio allo step successivo** (regola del 8/11/2026): alla fine di ogni sessione,
+  quando la PR è stata unita, chiedi al proprietario se vuole passare allo step successivo.
+  Se risponde sì, apri tu una nuova sessione cloud sull'ambiente **"irradia"** (id con
+  `list_environments`, poi `create_session` con il repository) con il primo messaggio già
+  inviato, scritto nello stesso stile di quello con cui è iniziata la fase 4: obiettivo
+  dello step, cosa è già fatto, decisioni già prese da rispettare, le domande a cui il piano
+  deve rispondere prima di scrivere codice, "lavora su un ramo nuovo e alla fine apri una
+  Pull Request".
 
 ## Avvisi noti
 
