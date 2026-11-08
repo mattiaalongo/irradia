@@ -197,7 +197,8 @@ solo informazioni ad alto livello (PR, issue, report del PJM). Il lavoro è divi
 **Flusso di un obiettivo:** issue → `tech-lead` scrive piano, criteri di accettazione e
 assegnazione → `software-developer` e/o `designer` implementano su un ramo → `software-tester`
 prova a livelli (si torna indietro se trova difetti) → PR **in bozza** → prova nel browser
-in locale → la bozza viene tolta → `pjm` aggiorna `docs/stato-progetto.md` → il PO rivede e unisce.
+in locale → la bozza viene tolta → il PO rivede e unisce → `pjm` aggiorna `docs/stato-progetto.md`
+in una piccola PR di sola documentazione.
 
 **Regola della PR in bozza (decisa l'8/11/2026).** La CI su GitHub non conosce il giudizio
 del tester; questa regola fa sì che una PR "pronta" significhi "provata anche nel browser".
@@ -213,13 +214,17 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
    l'ultimo della PR, e la CI è verde, la sessione cloud **toglie la bozza** e lo scrive
    sulla PR. Ogni nuovo commit annulla gli esiti: si riprova.
 5. Il PO unisce solo PR **non in bozza e con CI verde**.
+6. **Eccezione: PR di sola documentazione** (solo file `.md`, nessun file eseguito né mostrato
+   dall'app). Non vanno provate nel browser: si aprono già pronte, con la CI verde.
+   Così l'aggiornamento di `docs/stato-progetto.md` dopo l'unione non riapre il ciclo
+   (ogni commit annullerebbe gli esiti dei tester; corretto l'8/11/2026 dopo la PR #13).
 
 | Decisione | Motivo |
 |---|---|
 | Esito del tester come **commento sulla PR** + bozza, non come "check" di GitHub | Un check scritto da un agente sarebbe un'auto-certificazione non ripetibile e richiederebbe permessi di scrittura in più. Il segno verde della CI resta solo per test, lint e build. |
 | Prova nel browser **in locale, avviata dal PO** con `/prova-locale`, non una sessione locale sempre in ascolto | Una sessione sempre in ascolto (`/loop`) richiede PC acceso, consuma utilizzo anche a vuoto ed eseguirebbe codice sul PC senza chiedere. Avviarla costa al PO pochi secondi e lascia a lui il controllo. Da rivalutare con Remote Control (la sessione cloud "bussa" a quella locale). |
 | La sessione locale prova nella **propria copia di lavoro** (`git checkout --detach <sha>`), mai nella cartella principale | Il server di `.claude/launch.json` parte nella cartella della sessione; la cartella principale deve restare su `main` (da lì si leggono i mansionari). |
-| La prima volta `/prova-locale` va sostituito da un messaggio che dice di leggere la skill dal ramo della PR | Finché la PR che la introduce non è unita, la skill non c'è su `main`. Che le skill si leggano dalla cartella principale come i mansionari è un'ipotesi, **da verificare** al primo collaudo. |
+| Le skill del progetto (`.claude/skills/`) si leggono **probabilmente dalla cartella della sessione** (la sua copia di lavoro), non dalla cartella principale come i mansionari | Primo collaudo (PR #13, 8/11/2026): nella sessione locale `/prova-locale` all'inizio non c'era, poi è comparsa, verosimilmente quando la sessione ha portato nella sua copia di lavoro il commit della PR che la conteneva. **Da confermare.** Ora la skill è su `main`: basta che la copia di lavoro parta da un `main` aggiornato (`git pull` nella cartella principale). |
 | Soluzione futura: prove del browser automatiche con **Playwright nella CI** | Allora il verde vorrà dire anche "il browser funziona", senza passi manuali. La prova con PVGIS vero (firewall) resterà manuale: la CI non deve dipendere da un servizio esterno. |
 
 | Decisione | Motivo |
