@@ -206,7 +206,7 @@ solo informazioni ad alto livello (PR, issue, report del PJM). Il lavoro è divi
 
 | Agente | Ruolo | Modello | Può modificare |
 |---|---|---|---|
-| `pjm` | Project Manager: stato, rischi, decisioni in attesa del PO | Sonnet | solo `docs/stato-progetto.md` |
+| `pjm` | Project Manager: stato, rischi, decisioni in attesa del PO | Sonnet | nulla nel repo: prepara il testo dell'issue di stato (#22), lo pubblica la sessione |
 | `tech-lead` | Technical Leader: analizza gli issue, piano tecnico, assegna, rivede le PR | Opus | nulla nel repo (commenti ed etichette su GitHub) |
 | `software-developer` | SWD: motore e logica | Opus | codice e test |
 | `designer` | interfaccia, accessibilità, mobile | Sonnet | codice e test dell'interfaccia |
@@ -216,8 +216,9 @@ solo informazioni ad alto livello (PR, issue, report del PJM). Il lavoro è divi
 **Flusso di un obiettivo:** issue → `tech-lead` scrive piano, criteri di accettazione e
 assegnazione → `software-developer` e/o `designer` implementano su un ramo → `software-tester`
 prova a livelli (si torna indietro se trova difetti) → PR **in bozza** → prova nel browser
-in locale → la bozza viene tolta → il PO rivede e unisce → `pjm` aggiorna `docs/stato-progetto.md`
-in una piccola PR di sola documentazione.
+in locale → la bozza viene tolta → il PO rivede e unisce → `pjm` prepara lo stato aggiornato e la
+sessione lo pubblica nell'**issue fisso "📊 Project status" (#22)**: riscrive il testo dell'issue e
+aggiunge un breve commento con cosa è cambiato. Nessuna PR.
 
 **Regola della PR in bozza (decisa l'8/11/2026).** La CI su GitHub non conosce il giudizio
 del tester; questa regola fa sì che una PR "pronta" significhi "provata anche nel browser".
@@ -241,8 +242,8 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
    di GitHub, Dependabot; nessun file in `src/`, `public/`, `index.html`, `package*.json`,
    `vite.config.ts`, `tsconfig*`, `.github/workflows/`, `e2e/`, `playwright.config.ts`).
    Non vanno provate nel browser: si aprono già pronte, con la CI verde.
-   Così l'aggiornamento di `docs/stato-progetto.md` dopo l'unione non riapre il ciclo
-   (ogni commit annullerebbe gli esiti dei tester; corretto l'8/11/2026 dopo la PR #13).
+   Così le piccole PR di documentazione non riaprono il ciclo (ogni commit annullerebbe gli
+   esiti dei tester; corretto l'8/11/2026 dopo la PR #13).
 7. **Quando serve la prova locale (`Local L4: required`)** — decisione del PO dell'8/11/2026,
    issue #17. Si decide in modo meccanico dall'elenco dei file cambiati
    (`git diff --name-only origin/main...HEAD`); nel dubbio, `required`.
@@ -259,6 +260,7 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 
 | Decisione | Motivo |
 |---|---|
+| Stato del progetto in un **issue fisso su GitHub** ("📊 Project status", #22), non più in `docs/stato-progetto.md` (decisione del PO del 9/11/2026). Testo in inglese con la versione italiana richiudibile, come le PR | Ogni aggiornamento del file richiedeva una PR da rivedere e unire per un testo da leggere soltanto. L'issue non passa da PR né CI, manda una notifica al PO (anche sul telefono) e GitHub conserva la cronologia delle modifiche. Scartate: pagina su claude.ai (fuori da GitHub), solo chat (non resta), aggiornare il file dentro la PR (il commit in più annullerebbe gli esiti dei tester). |
 | Esito del tester come **commento sulla PR** + bozza, non come "check" di GitHub | Un check scritto da un agente sarebbe un'auto-certificazione non ripetibile e richiederebbe permessi di scrittura in più. Il segno verde della CI resta solo per test, lint e build. |
 | Prova nel browser **in locale, avviata dal PO** con `/prova-locale`, non una sessione locale sempre in ascolto | Una sessione sempre in ascolto (`/loop`) richiede PC acceso, consuma utilizzo anche a vuoto ed eseguirebbe codice sul PC senza chiedere. Avviarla costa al PO pochi secondi e lascia a lui il controllo. Da rivalutare con Remote Control (la sessione cloud "bussa" a quella locale). |
 | La sessione locale prova nella **propria copia di lavoro** (`git checkout --detach <sha>`), mai nella cartella principale | Il server di `.claude/launch.json` parte nella cartella della sessione; la cartella principale deve restare su `main` (da lì si leggono i mansionari). |
