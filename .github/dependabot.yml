@@ -35,6 +35,11 @@ updates:
       # typescript-eslint lo supporta.
       - dependency-name: "typescript"
         versions: [">= 6.1"]
+      # @types/node deve seguire la versione di Node usata in CI e in locale
+      # (24): tipi più recenti descriverebbero API che non esistono lì.
+      # Da aggiornare insieme a `node-version` in ci.yml.
+      - dependency-name: "@types/node"
+        versions: [">= 25"]
 
   # --- Action di GitHub (.github/workflows/) ---
   # Con le action fissate allo SHA servono aggiornamenti automatici, altrimenti

@@ -25,5 +25,10 @@ export default defineConfig({
   test: {
     // Il motore di calcolo è TypeScript puro: non serve simulare un browser.
     environment: 'node',
+    // Solo i test di src/: le prove del browser (e2e/*.spec.ts) le esegue
+    // Playwright, e Vitest le romperebbe cercando di avviarle da solo.
+    include: ['src/**/*.test.{ts,tsx}'],
+    // Seme fisso di fast-check (vedi il file).
+    setupFiles: ['src/test/fastCheckSetup.ts'],
   },
 })
