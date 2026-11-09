@@ -4,6 +4,7 @@ import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult }
 import AnnualTotal from './ui/AnnualTotal'
 import MonthlyChart from './ui/MonthlyChart'
 import NumberSlider from './ui/NumberSlider'
+import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
 import { cardinalDirection, formatNumber } from './ui/format'
 import { useTmy } from './ui/useTmy'
 
@@ -41,6 +42,11 @@ export default function App() {
   const simulation = useMemo(() => runSimulation(tmy, deferredSystem), [tmy, deferredSystem])
 
   const stale = tmyState.status !== 'ready'
+
+  let sticky: StickyTotalState
+  if (simulation && 'year' in simulation) sticky = { kind: 'ready', annualKwh: simulation.year.annualKwh, updating: tmyState.status === 'loading', failed: tmyState.status === 'error' }
+  else if (tmyState.status === 'loading') sticky = { kind: 'loading' }
+  else sticky = { kind: 'error' }
 
   return (
     <main>
@@ -106,6 +112,8 @@ export default function App() {
           )}
         </section>
       </div>
+
+      <StickyTotal state={sticky} />
     </main>
   )
 }

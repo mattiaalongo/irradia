@@ -147,3 +147,37 @@ input[aria-invalid='true'] { border-color: var(--error); }
 .chart-table th, .chart-table td { padding: 4px 0; border-bottom: 1px solid var(--border); }
 .chart-table th { text-align: left; font-weight: 400; color: var(--muted); }
 .chart-table td { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Barra del totale annuo: solo su telefono. Resta in basso mentre si muovono gli slider.
+   Sfondo pieno (non trasparente): i colori --fg/--muted/--error hanno così lo stesso contrasto
+   del resto della pagina in entrambi i temi. */
+.sticky-total { display: none; }
+
+@media (max-width: 819px) {
+  :root { --sticky-h: 56px; }
+  html { scroll-padding-bottom: calc(var(--sticky-h) + env(safe-area-inset-bottom) + 16px); }
+  /* Spazio sotto il contenuto: nulla (né il focus da tastiera, né un futuro piè di pagina) finisce sotto la barra. */
+  main { padding-bottom: calc(32px + var(--sticky-h) + env(safe-area-inset-bottom)); }
+  .sticky-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    min-height: calc(var(--sticky-h) + env(safe-area-inset-bottom));
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+    align-items: center;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 0.08);
+  }
+  .sticky-label { font-size: 14px; color: var(--muted); line-height: 1.25; }
+  .sticky-value { font-size: 24px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .sticky-unit { font-size: 14px; font-weight: 400; color: var(--muted); }
+  .sticky-msg { font-size: 14px; font-weight: 400; color: var(--muted); white-space: normal; }
+  .sticky-msg.error { color: var(--error); }
+}

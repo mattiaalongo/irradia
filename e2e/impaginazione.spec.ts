@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { avvio, orologioFermo, totale } from './helpers'
+import { ETICHETTE, avvio, orologioFermo, slider, totale } from './helpers'
 
 // Impaginazione su schermi diversi e contrasto del testo della nota (WCAG 2.x).
 
@@ -91,4 +91,34 @@ test.describe('contrasto della nota sotto il totale', () => {
       expect(c, `contrasto ${c.toFixed(2)}:1 (testo ${testo}, sfondo ${sfondo.map(Math.round)})`).toBeGreaterThanOrEqual(4.5)
     })
   }
+})
+
+test.describe('barra fissa del totale (solo telefono)', () => {
+  test('390 px: muovendo uno slider il totale resta visibile e cambia', async ({ page, pvgis }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await orologioFermo(page)
+    await avvio(page, pvgis)
+    const barra = page.getByTestId('sticky-total')
+    await expect(barra).toBeInViewport({ ratio: 1 })
+    const prima = await barra.innerText()
+
+    const s = slider(page, ETICHETTE.pannelli)
+    await s.scrollIntoViewIfNeeded()
+    await s.focus()
+    for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowRight')
+
+    await expect(barra).toBeInViewport({ ratio: 1 })
+    await expect.poll(() => barra.innerText()).not.toBe(prima)
+    // Il campo appena mosso non finisce sotto la barra.
+    const box = await s.boundingBox()
+    const bar = await barra.boundingBox()
+    expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y)
+  })
+
+  test('1280 px: la barra non compare', async ({ page, pvgis }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await orologioFermo(page)
+    await avvio(page, pvgis)
+    await expect(page.getByTestId('sticky-total')).toBeHidden()
+  })
 })
