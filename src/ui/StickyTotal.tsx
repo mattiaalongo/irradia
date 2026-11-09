@@ -1,7 +1,7 @@
 import { formatNumber } from './format'
 
 export type StickyTotalState =
-  | { kind: 'ready'; annualKwh: number; updating: boolean }
+  | { kind: 'ready'; annualKwh: number; updating: boolean; failed: boolean }
   | { kind: 'loading' }
   | { kind: 'error' }
 
@@ -19,6 +19,9 @@ export default function StickyTotal({ state }: { state: StickyTotalState }) {
   let body: React.ReactNode
   if (state.kind === 'ready') {
     if (state.updating) label = 'Aggiorno con i nuovi dati…'
+    // Download fallito con un risultato precedente: il numero è quello della posizione di prima.
+    // L'avviso completo (role="alert") è nei risultati, spesso fuori schermo sul telefono.
+    else if (state.failed) label = 'Dati non aggiornati (errore)'
     body = (
       <>
         {formatNumber(state.annualKwh)} <span className="sticky-unit">kWh</span>

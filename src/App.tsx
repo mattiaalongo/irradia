@@ -44,7 +44,7 @@ export default function App() {
   const stale = tmyState.status !== 'ready'
 
   let sticky: StickyTotalState
-  if (simulation && 'year' in simulation) sticky = { kind: 'ready', annualKwh: simulation.year.annualKwh, updating: tmyState.status === 'loading' }
+  if (simulation && 'year' in simulation) sticky = { kind: 'ready', annualKwh: simulation.year.annualKwh, updating: tmyState.status === 'loading', failed: tmyState.status === 'error' }
   else if (tmyState.status === 'loading') sticky = { kind: 'loading' }
   else sticky = { kind: 'error' }
 
