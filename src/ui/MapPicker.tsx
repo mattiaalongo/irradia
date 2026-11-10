@@ -12,6 +12,7 @@
 
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import './map.css' // dopo il CSS di Leaflet: vedi il commento in map.css
 import { useEffect, useRef, useState } from 'react'
 import {
   MAP_INITIAL_CENTER,

@@ -567,10 +567,6 @@ const contrasto = (a: Rgb, b: Rgb) => {
 test.describe('attribuzione e controlli', () => {
   for (const tema of ['light', 'dark'] as const) {
     test(`tema ${tema}: attribuzione visibile, testo e link ≥ 4,5:1; controlli di zoom leggibili`, async ({ page, pvgis }) => {
-      // DIFETTO NOTO (da segnalare): nella build il CSS di Leaflet (file lazy) arriva dopo index.css e,
-      // a parità di specificità, sovrascrive sfondo/colori dell'attribuzione e dei controlli: nel tema
-      // scuro il testo chiaro finisce su sfondo bianco (contrasto 1,2:1).
-      if (tema === 'dark') test.fail()
       await page.emulateMedia({ colorScheme: tema })
       await orologioFermo(page)
       await avvio(page, pvgis)
@@ -612,8 +608,9 @@ test.describe('attribuzione e controlli', () => {
     const href = new URL((await l.getAttribute('href'))!)
     expect(href.protocol).toBe('https:')
     expect(href.hostname).toBe('www.openstreetmap.org')
-    const target = await l.getAttribute('target')
-    if (target === '_blank') expect(await l.getAttribute('rel')).toMatch(/noopener/)
+    // Si apre in una nuova scheda: l'utente non perde i valori inseriti.
+    await expect(l).toHaveAttribute('target', '_blank')
+    expect(await l.getAttribute('rel')).toMatch(/noopener/)
   })
 })
 

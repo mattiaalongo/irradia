@@ -221,7 +221,6 @@ input[aria-invalid='true'] { border-color: var(--error); }
   border-radius: 6px;
   /* Contesto di impilamento proprio: i livelli di Leaflet (z-index fino a 1000) restano sotto la barra fissa. */
   isolation: isolate;
-  background: #e5e3df;
 }
 .map-loading { display: flex; align-items: center; justify-content: center; color: #4a4a46; font-size: 14px; }
 .map-notice { margin: 6px 0 0; min-height: 1.4em; font-size: 13px; color: var(--muted); }
@@ -232,26 +231,3 @@ input[aria-invalid='true'] { border-color: var(--error); }
   .map-picker { margin-inline: 12px; }
   .map { height: clamp(240px, 50svh, 420px); }
 }
-
-/* Marcatore: corpo con l'accento del tema, bordo scuro fisso (le tessere sono sempre chiare). */
-.map-pin { background: none; border: 0; }
-.map-pin svg { display: block; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35)); }
-.map-pin-body { fill: var(--accent); stroke: var(--pin-edge); stroke-width: 1.5; }
-.map-pin-dot { fill: var(--pin-edge); }
-.leaflet-marker-draggable { cursor: grab; }
-
-/* Controlli di Leaflet nei colori del tema (contrasto ≥ 4,5:1). Le tessere restano chiare. */
-.leaflet-container .leaflet-control-attribution {
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 12px;
-}
-.leaflet-container .leaflet-control-attribution a { color: var(--link); }
-.leaflet-bar, .leaflet-touch .leaflet-bar { border: 1px solid var(--border); box-shadow: none; }
-.leaflet-bar a, .leaflet-bar a:hover, .leaflet-bar a:focus {
-  background-color: var(--bg);
-  color: var(--fg);
-  border-bottom-color: var(--border);
-}
-.leaflet-bar a.leaflet-disabled { background-color: var(--bg); color: var(--muted); }
-.leaflet-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

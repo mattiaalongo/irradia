@@ -29,10 +29,11 @@ export const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
 /**
  * Attribuzione (HTML) richiesta dalla licenza ODbL e dalla tile usage policy;
- * testo suggerito da https://www.openstreetmap.org/copyright.
+ * testo suggerito da https://www.openstreetmap.org/copyright. Il link si apre in una nuova scheda
+ * (target=_blank + noopener noreferrer) per non far perdere all'utente i valori già inseriti.
  */
 export const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
 
 /** Zoom massimo: il server OSM standard produce tessere fino al livello 19 (oltre: errore). */
 export const MAP_MAX_ZOOM = 19
