@@ -34,7 +34,7 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | Faiman riceve l'irradianza sul piano **prima** delle perdite del vetro | È la definizione originale (piranometro sul piano) e riproduce meglio PVGIS. |
 | Diffusa: **niente** formula speciale di r.sun per sole < 5,7°; sin h limitato a sin 1° | Misurato: PVGIS 5.3 non la applica (con essa ~10 W/m² di scarto). Limite come in pvlib (haydavies). |
 | Riflessa: modello isotropo con GHI anche quando il sole è dietro il pannello | Fisicamente corretto. PVGIS in quel caso usa solo la diffusa: +1,7 % di riflessa per un pannello a Est (≈ 0,2 kWh/m² l'anno). |
-| **Nessun effetto spettrale** e **nessuna ombra dell'orizzonte** (per ora) | Lo spettrale di PVGIS non è riproducibile in modo verificabile (±1 %). Le ombre arriveranno con la mappa. |
+| **Nessun effetto spettrale** e **nessuna ombra di ostacoli vicini** (edifici, alberi) | Lo spettrale di PVGIS non è riproducibile in modo verificabile (±1 %). ⚠️ **Le ombre del terreno ci sono già** (scoperta del 9/11/2026): `pvgisTmyUrl` non passa `usehorizon`, PVGIS usa il suo valore predefinito "con orizzonte" (`use_horizon: true`, `DEM-calculated` nei fixture) e toglie la diretta quando il sole è dietro i monti (Aosta: DNI −12,6 %; Roma e Milano: nessuna differenza). Decisione del PO: **tenerle**, ma renderle esplicite (`usehorizon=1`), correggere la nota sotto i risultati (oggi dice il contrario) e validarle: issue #25. |
 | Validazione su **due località** (Roma, Milano) e tre livelli: ora per ora contro `seriescalc` 2020 (somme: diretta ±0,3 %, diffusa ±0,2 %, riflessa ±0,2-0,3 %, energia ±1 %); ogni mese dell'anno tipo contro **lo stesso mese reale** di `MRcalc` (H(i) ±1 %, GHI ±0,5 %, somma annua ±0,5 %); conversione luce → energia contro `PVcalc` (E/H(i) ±1,5 %; energia corretta per la luce dell'anno tipo: anno ±1,5 %, mesi ±4 %). Più un valore di non regressione (Milano 8,6 kWp, Sud 35°, perdite 0: 14.122 ± 1 kWh) | L'anno tipo non è la media 2005-2023: confrontarlo direttamente con PVcalc mescola la "fortuna" dei 12 mesi scelti con gli errori del motore (a Milano +3,5 % di energia e settembre a 2,03 deviazioni standard con il motore corretto). MRcalc misura quella fortuna da sola, quindi nessun test può fallire per essa. Tolto il controllo "mesi entro 2 deviazioni standard" (issue #10). |
 | Milano (45,4642 N, 9,19 E), Sud 35°: +3,5 % di energia rispetto a PVcalc **non è un errore** (issue #10, verificato 8/11/2026) | L'anno tipo ha il 3,9-4,0 % di luce sul piano in più della media 2005-2023. Orizzonte nullo (PVGIS dà lo stesso E_y con e senza). Conversione E/H(i) −0,5 % rispetto a PVGIS: effetto spettrale non modellato (PVGIS l_spec +1,16 %). Ora per ora contro `seriescalc` 2020: energia +0,42 %. |
 | Mesi aggregati sul mese UTC di `TmyHour.time` | Il TMY è composto per mesi UTC: così ogni ora resta nel mese da cui proviene. |
@@ -45,9 +45,17 @@ documentate e da dati storici misurati, ed essere riproducibile e verificabile.
 | Lo stato è diviso: **posizione** → `useTmy` (unico motivo di download); **impianto** → solo `simulateYear` (~15 ms, locale) | I parametri dei pannelli non possono provocare download. Scartati: Web Worker (inutile per 15 ms) e lo sfruttare la proporzionalità a kWp/perdite (errore silenzioso se un giorno il modello cambia). |
 | Memoria dei download **in RAM** (`ui/tmyLoader.ts`), chiave = coordinate arrotondate a 4 decimali (≈ 11 m); si salva la richiesta in corso, non solo il risultato | Tornando a una posizione già vista non si riscarica nulla; due richieste uguali ravvicinate ne fanno una. Niente localStorage: un TMY pesa 1-2 MB, il limite è ~5 MB. |
 | Orientamento nell'interfaccia = **azimut 0-359° da Nord** (convenzione del motore) con il punto cardinale scritto accanto | Scelta del proprietario (8/11/2026): nessuna conversione, nessun rischio di errori di segno. |
-| Slider di latitudine 34-72° e longitudine −25-45° (Europa); i campi accettano lo stesso intervallo | Area di lavoro del progetto. Con la mappa (fase 5) la posizione si sceglierà cliccando. |
+| Area di lavoro latitudine 34-72° e longitudine −25-45° (Europa) per slider, campi e mappa; i limiti stanno **in un solo punto** (`ui/mapArea.ts`, costanti `AREA_*`) | Area di lavoro del progetto. Una sola fonte: slider e mappa non possono divergere. |
 | Sotto il totale annuo una **nota fissa** (`ui/AnnualTotal.tsx`): il totale è su un anno tipo di mesi reali 2005-2023, il sito PVGIS (PVcalc) mostra la media di tutti gli anni e le cifre possono differire di qualche punto percentuale. Niente numeri di città; colore secondario (contrasto 5,1:1 chiaro, 6,3:1 scuro) | A Milano anno tipo e PVcalc differiscono del +3,5 % senza errori del motore: senza spiegazione chi confronta app e sito penserebbe a un errore. Decisione del PO dell'8/11/2026 (issue #10). Gli anni sono scritti fissi perché valgono per PVGIS `v5_3`: **se si cambia versione di PVGIS, aggiornare la nota.** |
 | Numeri sempre con separatore delle migliaia ("6.498"), anche a 4 cifre | Per default l'italiano scrive "6498" ma "11.077": incoerente sulla stessa pagina. Per questo `tsconfig.app.json` include `ES2023.Intl` (solo tipi). |
+| Telefono (< 820 px): **barra fissa in basso con il totale annuo** (`ui/StickyTotal.tsx`, PR #27, issue #12), nascosta ai lettori di schermo (`aria-hidden`); stati: risultato, "Aggiorno…", "Scarico…", "Dati non disponibili", "Dati non aggiornati (errore)" | Chi muove uno slider vede il risultato senza scorrere. Scartati: risultati sopra i campi, sezioni richiudibili, barra in alto. Il totale accessibile resta uno solo: nessun annuncio a ogni passo di slider. |
+| Fase 5, mappa: **Leaflet 1.9.4** (BSD-2) usato direttamente in `ui/MapPicker.tsx`, **niente react-leaflet** (decisione del PO del 9/11/2026, piano in #24) | Leggera (+44 kB gzip), stabile, senza WebGL (gira nella CI). Scartati: MapLibre GL (~7× più pesante, WebGL), OpenLayers (più pesante e complesso), pigeon-maps (fermo da 2 anni), nessuna libreria (troppo codice nostro), react-leaflet (licenza Hippocratic non standard). La 2.0 di Leaflet (beta) arriverà come PR separata di Dependabot: da leggere con calma. |
+| Tessere **OpenStreetMap standard** (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`, in `ui/config.ts`), senza chiave. Condizioni d'uso **lette sulla pagina ufficiale il 10/11/2026** (dettagli in #24): obblighi rispettati (URL esatto, attribuzione visibile, Referer non bloccato, cache del browser, niente prescaricamento) | Gratuite e senza account. **Non impostare mai** `referrerPolicy` restrittive né togliere il Referer (anche nell'intermediario della fase 6): OSM blocca. Raccomandazioni per la fase 6: link "segnala un errore" a openstreetmap.org/fixthemap, email di contatto, URL delle tessere cambiabile senza ricompilare. |
+| La mappa è **controllata**: lo stato della posizione resta in `App.tsx`; clic, tocco e fine trascinamento del marcatore cambiano la posizione (arrotondata a 4 decimali con `pointFromMap`), spostare e zoomare no; doppio clic per zoom **disattivato**, rotella solo con la mappa a fuoco | Un solo download PVGIS dopo 0,8 s come con i campi. Il doppio clic sposterebbe anche la posizione; la rotella senza focus bloccherebbe lo scorrimento della pagina. |
+| Mappa **caricata solo quando mostrata** (`React.lazy` in `ui/LocationMap.tsx`); sul telefono **chiusa per default** dietro "Scegli sulla mappa". Limite del JS iniziale: **80 kB gzip** (oggi 78,3: poco margine) | Il primo caricamento resta leggero; il dito che scorre la pagina non sposta la mappa. |
+| Stili che correggono Leaflet in `ui/map.css`, importato **dopo** `leaflet.css` e con selettori `.map-picker .map` | Il CSS di Leaflet arriva nel file differito, dopo `index.css`, e a parità di specificità vinceva (difetto del tema scuro trovato dal tester nella PR #29). Tessere sempre chiare nel tema scuro, senza filtri (decisione del PO). |
+| **Piè di pagina sulla privacy** (`ui/SiteFooter.tsx`, testo approvato dal PO il 10/11/2026): niente account, cookie o salvataggi; coordinate (≈ 11 m) a PVGIS; IP e zona guardata a OpenStreetMap | Richiesta del PO. **Da aggiornare in fase 6**: in produzione PVGIS vedrà l'IP dell'intermediario, l'hosting vedrà quello dell'utente. Non è un'informativa legale (GDPR): quella servirà alla pubblicazione. |
+| **Rimandati**: ricerca per indirizzo (Nominatim: 1 richiesta/s per tutti gli utenti, indirizzo in chiaro a terzi), vista satellitare (chiavi e condizioni non verificate), sezione "come è calcolata la stima" (#26, dopo #25) | Decisioni del PO del 9/11/2026. |
 
 **Verificato (7/11/2026): PVGIS non invia header CORS**, quindi il browser non può
 leggere direttamente le sue risposte. Serve un piccolo intermediario lato server
@@ -90,7 +98,11 @@ src/
                    hash nel README.md), `pvgisSeries.ts` (serie orarie) e `pvgisMonthly.ts`
                    (MRcalc, irradiazione mensile di ogni anno): lettori usati solo dai test.
   ui/          Pezzi dell'interfaccia (React) e loro logica pura, con i test accanto.
-    config.ts      Indirizzo di PVGIS visto dal browser e attesa prima del download.
+    config.ts      Indirizzo di PVGIS visto dal browser, attesa prima del download, tessere OSM.
+    mapArea.ts     Area di lavoro (limiti `AREA_*`) e conversione del clic in coordinate (puro).
+    MapPicker.tsx  Mappa Leaflet controllata (+ `map.css`); LocationMap.tsx la carica e la apre.
+    StickyTotal.tsx   Barra fissa del totale sul telefono.
+    SiteFooter.tsx    Piè di pagina sulla privacy.
     tmyLoader.ts   Memoria dei download dell'anno tipo (TypeScript puro).
     useTmy.ts      Hook React: anno tipo per una posizione (attesa, annullamento, stato).
     NumberSlider.tsx  Campo numerico + slider collegati; `parseInput.ts` controlla il testo.
@@ -100,9 +112,12 @@ src/
   App.tsx      Pagina principale: parametri a sinistra, totale annuo e grafico a destra.
   test/        `fastCheckSetup.ts`: seme fisso di fast-check per tutti i test.
   **/*.property.test.ts  Proprietà con fast-check (input casuali), accanto ai moduli.
-e2e/           Prove nel browser (Playwright) con PVGIS simulato dai fixture.
-    fixtures.ts    Simulazione di PVGIS, blocco delle richieste non simulate, controllo della console.
-    *.spec.ts      calcolo, rete (attesa, memoria, errori), campi e tastiera, impaginazione.
+e2e/           Prove nel browser (Playwright) con PVGIS e tessere OSM simulati.
+    fixtures.ts    Simulazione di PVGIS e delle tessere (PNG generata nel codice), blocco delle
+                   richieste non simulate, controllo della console.
+    *.spec.ts      calcolo, rete (attesa, memoria, errori), campi e tastiera, impaginazione,
+                   barra fissa, mappa. Con l'orologio fermo (`page.clock`) anche le animazioni di
+                   Leaflet e il caricamento differito avanzano solo facendo correre l'orologio.
 playwright.config.ts  Solo Chromium, contro la build di produzione (`vite preview`, porta 4173).
 .github/       CI (workflows/ci.yml), Dependabot, modelli di issue e di PR.
 ```
@@ -195,6 +210,9 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   (`<cartella principale del progetto>`), non dalle copie di lavoro (`.claude/worktrees/…`) in cui
   girano le sessioni (verificato 8/11/2026). Una modifica a `.claude/agents/` vale solo quando
   la cartella principale è su un ramo che la contiene: tenerla su `main` aggiornato (`git pull`).
+- **Nelle prove (anche `/prova-locale`) solo coordinate di città**: i commenti delle prove finiscono
+  su GitHub. Con la mappa è facile cliccare un punto preciso; per un caso particolare (es. vento
+  negativo, #28) scrivere il nome del paese più vicino e coordinate arrotondate a 2 decimali.
 - Il frontmatter dei mansionari è **YAML**: mai `: ` (due punti e spazio) dentro una descrizione
   senza virgolette, altrimenti l'agente sparisce senza alcun errore (successo al tester l'8/11/2026).
 
