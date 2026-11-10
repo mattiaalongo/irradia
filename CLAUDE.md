@@ -169,7 +169,9 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
 
 - Scrivi **in italiano** (codice e identificatori in inglese, commenti e testi in italiano).
 - **Su GitHub tutto in inglese** (decisione del PO dell'8/11/2026): titoli e descrizioni di PR
-  e issue, commenti, messaggi di commit, modelli di PR e di issue, etichette. Motivo: lo storico
+  e issue, commenti, messaggi di commit, **nomi dei rami** (es. `claude/negative-wind`, aggiunto dal
+  PO il 10/11/2026; i rami già uniti con nomi italiani restano com'erano), modelli di PR e di
+  issue, etichette. Motivo: lo storico
   deve essere comprensibile anche a persone esterne. Con il PO si parla in italiano; restano in
   italiano i file del repository (questo file, mansionari, skill, commenti nel codice, `docs/`)
   e i testi dell'app. Se il PO apre un issue in italiano, la sessione aggiunge un commento con
