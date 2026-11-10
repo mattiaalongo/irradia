@@ -59,19 +59,23 @@ describe('parsePvgisTmy, vento negativo (proprietà)', () => {
         const t = parsePvgisTmy(withWind(new Map(inj)))
         const rows = raw.outputs.tmy_hourly as Json[]
         const injected = new Map(inj)
-        for (const h of t.hours) expect(h.windSpeedMs).toBeGreaterThanOrEqual(0)
-        // Registrate esattamente le ore con valore < 0 (-0 non è < 0: nessuna registrazione).
-        const attesi = inj.filter(([, v]) => v < 0).sort((a, b) => a[0] - b[0]).map(([index, originalMs]) => ({ index, originalMs }))
-        expect(t.windSpeedClamped).toEqual(attesi)
+        // Un solo ciclo semplice che raccoglie le ore sbagliate: un expect per ora (8760 x 60 casi
+        // x 6) costava ~11 s nel cloud e oltre 30 s su Windows. L'asserzione finale resta una sola.
+        const errori: string[] = []
         t.hours.forEach((h, i) => {
           const r = rows[i]
-          expect(h.ghiWm2).toBe(r['G(h)'])
-          expect(h.dniWm2).toBe(r['Gb(n)'])
-          expect(h.dhiWm2).toBe(r['Gd(h)'])
-          expect(h.airTemperatureC).toBe(r.T2m)
-          if (!injected.has(i)) expect(h.windSpeedMs).toBe(r.WS10m)
-          else expect(h.windSpeedMs === 0).toBe(true) // 0 oppure -0
+          if (!(h.windSpeedMs >= 0)) errori.push(`${i}: vento ${h.windSpeedMs} non >= 0`)
+          if (h.ghiWm2 !== r['G(h)'] || h.dniWm2 !== r['Gb(n)'] || h.dhiWm2 !== r['Gd(h)'] || h.airTemperatureC !== r.T2m) {
+            errori.push(`${i}: irradianza o temperatura alterate`)
+          }
+          if (injected.has(i)) {
+            if (h.windSpeedMs !== 0) errori.push(`${i}: vento iniettato non azzerato (${h.windSpeedMs})`) // 0 oppure -0
+          } else if (h.windSpeedMs !== r.WS10m) errori.push(`${i}: vento non iniettato alterato`)
         })
+        expect(errori).toEqual([])
+        // Registrate esattamente le ore con valore < 0 (-0 non è < 0: nessuna registrazione).
+        const attesi = inj.filter(([, v]) => v < 0).sort((x, y) => x[0] - y[0]).map(([index, originalMs]) => ({ index, originalMs }))
+        expect(t.windSpeedClamped).toEqual(attesi)
       }),
       { numRuns: 60 },
     )
