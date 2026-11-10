@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import raw from './__fixtures__/pvgis-tmy-roma.json'
+import livornoRaw from './__fixtures__/pvgis-tmy-livorno.json'
+import milanoRaw from './__fixtures__/pvgis-tmy-milano.json'
 import { fetchPvgisTmy, parsePvgisTmy, PvgisError, pvgisTmyUrl, TMY_HOURS, type Tmy } from './pvgisTmy'
 import { solarPosition } from './solarPosition'
 
@@ -196,6 +198,109 @@ describe('parsePvgisTmy — risposte non valide', () => {
     const j = rawCopy()
     j.outputs.months_selected.pop()
     expectError(j, /1-12/)
+  })
+})
+
+describe('parsePvgisTmy — vento negativo vicino ai cambi di mese (issue #28)', () => {
+  // Fonte: risposta reale di PVGIS 5.3 (strumento "tmy") per Livorno centro, scaricata il
+  // 10/11/2026 (vedi __fixtures__/README.md). Nel file stesso, il 1/8/2020 alle 6 e alle 7
+  // UTC (ore 5094 e 5095, prime ore di agosto) WS10m vale −0,25 e −0,52 m/s: la rampa di
+  // raccordo tra luglio 2010 e agosto 2020 attraversa lo zero.
+  const livorno = parsePvgisTmy(livornoRaw)
+  const rows = livornoRaw.outputs.tmy_hourly
+
+  it('Livorno viene accettato e le due ore negative diventano 0 m/s', () => {
+    expect(livorno.hours).toHaveLength(TMY_HOURS)
+    expect(rows[5094]['time(UTC)']).toBe('20200801:0600')
+    expect(livorno.hours[5094].windSpeedMs).toBe(0)
+    expect(livorno.hours[5095].windSpeedMs).toBe(0)
+  })
+
+  it('le ore corrette sono registrate con il valore originale', () => {
+    expect(livorno.windSpeedClamped).toEqual([
+      { index: 5094, originalMs: -0.25 },
+      { index: 5095, originalMs: -0.52 },
+    ])
+  })
+
+  it('tutto il resto è identico al file PVGIS', () => {
+    rows.forEach((r, i) => {
+      const h = livorno.hours[i]
+      expect(h.ghiWm2).toBe(r['G(h)'])
+      expect(h.dniWm2).toBe(r['Gb(n)'])
+      expect(h.dhiWm2).toBe(r['Gd(h)'])
+      expect(h.airTemperatureC).toBe(r.T2m)
+      if (i !== 5094 && i !== 5095) expect(h.windSpeedMs).toBe(r.WS10m)
+    })
+  })
+
+  it('Roma e Milano non hanno vento negativo: elenco vuoto', () => {
+    expect(tmy.windSpeedClamped).toEqual([])
+    expect(parsePvgisTmy(milanoRaw).windSpeedClamped).toEqual([])
+  })
+
+  it('un negativo lontano dal cambio di mese resta un errore (ora 100, 5/1 alle 4 UTC)', () => {
+    const j = rawCopy()
+    j.outputs.tmy_hourly[100].WS10m = -0.3
+    expect(() => parsePvgisTmy(j)).toThrow(PvgisError)
+    expect(() => parsePvgisTmy(j)).toThrow(/WS10m" è negativo \(-0\.3\) lontano da un cambio di mese/)
+  })
+
+  // Bordi della finestra (8 ore prima e dopo il cambio di mese), su una copia di Roma.
+  // Indici nel calendario non bisestile: 31/1 = ore 720-743, 1/2 = ore 744-767;
+  // 28/2 = ore 1392-1415 (febbraio finisce il 28 anche se l'anno reale fosse bisestile).
+  const accepted: [number, string][] = [
+    [0, 'prima ora dell\'anno (1/1 00:00)'],
+    [7, '1/1 07:00, ultima delle prime 8 ore'],
+    [736, '31/1 16:00, prima delle ultime 8 ore di gennaio'],
+    [751, '1/2 07:00'],
+    [1408, '28/2 16:00'],
+    [8752, '31/12 16:00'],
+    [8759, 'ultima ora dell\'anno (31/12 23:00)'],
+  ]
+  for (const [index, label] of accepted) {
+    it(`negativo accettato e portato a 0 dentro la finestra: ora ${index}, ${label}`, () => {
+      const j = rawCopy()
+      j.outputs.tmy_hourly[index].WS10m = -1.5
+      const t = parsePvgisTmy(j)
+      expect(t.hours[index].windSpeedMs).toBe(0)
+      expect(t.windSpeedClamped).toEqual([{ index, originalMs: -1.5 }])
+    })
+  }
+
+  const rejected: [number, string][] = [
+    [8, '1/1 08:00, subito dopo le prime 8 ore'],
+    [735, '31/1 15:00, subito prima delle ultime 8 ore'],
+    [752, '1/2 08:00'],
+    [1407, '28/2 15:00'],
+    [8751, '31/12 15:00'],
+  ]
+  for (const [index, label] of rejected) {
+    it(`negativo rifiutato appena fuori dalla finestra: ora ${index}, ${label}`, () => {
+      const j = rawCopy()
+      j.outputs.tmy_hourly[index].WS10m = -1.5
+      expect(() => parsePvgisTmy(j)).toThrow(PvgisError)
+    })
+  }
+
+  it('febbraio preso da un anno bisestile: la finestra finisce comunque il 28 (ora 1408)', () => {
+    // Copia di Roma con febbraio "spostato" nel 2008 (bisestile): PVGIS non mette il 29
+    // febbraio nel TMY, quindi dopo il 28/2 23:00 viene il 1/3 e la finestra deve seguirlo.
+    const j = rawCopy()
+    j.outputs.months_selected.find((m: { month: number }) => m.month === 2).year = 2008
+    for (const r of j.outputs.tmy_hourly) {
+      if (r['time(UTC)'].slice(4, 6) === '02') r['time(UTC)'] = '2008' + r['time(UTC)'].slice(4)
+    }
+    j.outputs.tmy_hourly[1408].WS10m = -0.4
+    const t = parsePvgisTmy(j)
+    expect(t.hours[1408].time).toEqual(new Date('2008-02-28T16:00:00Z'))
+    expect(t.windSpeedClamped).toEqual([{ index: 1408, originalMs: -0.4 }])
+  })
+
+  it('la finestra vale solo per il vento: un\'irradianza negativa al cambio di mese resta un errore', () => {
+    const j = rawCopy()
+    j.outputs.tmy_hourly[0]['G(h)'] = -1
+    expect(() => parsePvgisTmy(j)).toThrow(/G\(h\)" è negativo/)
   })
 })
 

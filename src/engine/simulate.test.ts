@@ -10,6 +10,7 @@ import milanoS35Raw from './__fixtures__/pvgis-series-milano-2020-s35.json'
 import milanoTmyRaw from './__fixtures__/pvgis-tmy-milano.json'
 import milanoPvcalcRaw from './__fixtures__/pvgis-pvcalc-milano-s35.json'
 import milanoMrcalcRaw from './__fixtures__/pvgis-mrcalc-milano-s35.json'
+import livornoTmyRaw from './__fixtures__/pvgis-tmy-livorno.json'
 import { parsePvgisSeries, type Series } from './__fixtures__/pvgisSeries'
 import { parsePvgisMonthly, type MonthlyRadiation } from './__fixtures__/pvgisMonthly'
 import { parsePvgisTmy, TMY_HOURS, type Tmy } from './pvgisTmy'
@@ -316,6 +317,22 @@ describe('non regressione: Milano, 8,6 kWp, Sud 35°, perdite 0', () => {
   it('14 122 ± 1 kWh l\'anno', () => {
     const y = simulateYear(milano.tmy, milano.pvcalcSystem)
     expect(Math.abs(y.annualKwh - 14_122)).toBeLessThan(1)
+  })
+})
+
+// Non regressione: Livorno centro (43,5485 N 10,3106 E), il primo fixture con vento negativo
+// vicino a un cambio di mese (issue #28: 2 ore portate a 0 m/s dal parser). 1 kWp, Sud 35°,
+// perdite 0. Valore calcolato il 10/11/2026 con questo motore: NON è un riferimento esterno
+// (PVGIS non è stato confrontato su questo punto), serve solo ad accorgersi se il calcolo
+// su un TMY con ore corrette cambia. Tolleranza ±0,01 kWh: il calcolo è deterministico e la
+// correzione del vento vale circa 0,0035 kWh, quindi la tolleranza non la nasconde del tutto
+// ma lascia margine agli arrotondamenti dell'aritmetica in virgola mobile.
+describe('non regressione: Livorno, 1 kWp, Sud 35°, perdite 0', () => {
+  it('1669,197 ± 0,01 kWh l\'anno', () => {
+    const livornoTmy = parsePvgisTmy(livornoTmyRaw)
+    expect(livornoTmy.windSpeedClamped).toHaveLength(2)
+    const y = simulateYear(livornoTmy, { ...oneKwp(35, 180), systemLossPct: 0 })
+    expect(Math.abs(y.annualKwh - 1669.197)).toBeLessThan(0.01)
   })
 })
 

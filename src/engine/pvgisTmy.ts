@@ -58,6 +58,12 @@ export interface Tmy {
   monthsSelected: { month: number; year: number }[]
   /** Le 8760 ore, ordinate per mese, giorno e ora. */
   hours: TmyHour[]
+  /**
+   * Ore in cui PVGIS ha dato un vento `WS10m` negativo, vicino a un cambio di mese, e che
+   * abbiamo portato a 0 m/s (vedi `MONTH_JUNCTION_HOURS`): posizione in `hours` e valore
+   * originale, m/s. Vuoto per la gran parte delle località (es. Roma e Milano).
+   */
+  windSpeedClamped: { index: number; originalMs: number }[]
 }
 
 /** Errore di lettura o di scaricamento dei dati PVGIS. */
@@ -87,6 +93,50 @@ const COLUMNS = [
   { key: 'T2m', field: 'airTemperatureC', unit: 'degree Celsius', nonNegative: false },
   { key: 'WS10m', field: 'windSpeedMs', unit: 'm/s', nonNegative: true },
 ] as const
+
+/**
+ * Vento negativo vicino ai cambi di mese (issue #28).
+ *
+ * Il vento `WS10m` è una velocità (un modulo): non può essere negativo. Eppure in alcuni
+ * TMY di PVGIS 5.3 compaiono valori negativi (Livorno: −0,25 e −0,52 m/s il 1/8 alle 6 e
+ * alle 7 UTC; altri punti fino a −2,35 m/s). Verificato il 10/11/2026 su 20 punti: 8
+ * avevano valori negativi, **tutti entro 8 ore da un cambio di mese**.
+ *
+ * Spiegazione (inferenza dai dati, nessuna fonte JRC/ERA5 trovata): ogni mese del TMY
+ * viene da un anno diverso; per evitare salti alle giunzioni PVGIS raccorda le ultime 8
+ * ore di un mese e le prime 8 del successivo con una rampa lineare (si vede su `WS10m` e
+ * `T2m`), come prevede EN ISO 15927-4, la norma che PVGIS dichiara di seguire (JRC, sito
+ * PVGIS, pagina "PVGIS TMY generator", sezione PVGIS tools).
+ * A volte la rampa attraversa lo zero: è un artefatto di costruzione, non una misura.
+ *
+ * Scelta: dentro quella finestra un vento negativo diventa 0 m/s, il limite fisico (calma)
+ * e la scelta prudente (celle un po' più calde, produzione un po' sottostimata; effetto
+ * ≤ 2 ppm sull'energia annua). FUORI dalla finestra un negativo resta un errore: lì non c'è
+ * una spiegazione nota e potrebbe essere un cambio di formato (es. un valore "-999" per
+ * "dato mancante") da non accettare in silenzio.
+ * Scartati: correggere sempre (nasconderebbe un cambio di formato), rifiutare (40 % dei
+ * punti provati inutilizzabili per un effetto invisibile), soglia fissa, valore assoluto o
+ * copia dell'ora vicina (nessuna base fisica).
+ */
+const MONTH_JUNCTION_HOURS = 8
+
+const HOUR_MS = 3_600_000
+
+/**
+ * Vero se l'ora del calendario tipo è tra le ultime `MONTH_JUNCTION_HOURS` del suo mese o
+ * tra le prime del mese, compreso il passaggio 31/12 → 1/1 (indici 8752-8759 e 0-7).
+ * Va usato il calendario NON bisestile dell'anno tipo, non l'anno reale della riga: un
+ * febbraio preso da un anno bisestile finisce comunque il 28 nel TMY (PVGIS toglie il 29),
+ * e con l'anno reale le sue ultime 8 ore non risulterebbero vicine al cambio di mese.
+ */
+function isNearMonthJunction(calendarHour: Date): boolean {
+  const month = calendarHour.getUTCMonth()
+  const shift = MONTH_JUNCTION_HOURS * HOUR_MS
+  return (
+    new Date(calendarHour.getTime() - shift).getUTCMonth() !== month ||
+    new Date(calendarHour.getTime() + shift).getUTCMonth() !== month
+  )
+}
 
 type Obj = Record<string, unknown>
 
@@ -185,6 +235,7 @@ export function parsePvgisTmy(json: unknown): Tmy {
   // Calendario atteso: tutte le ore di un anno non bisestile, nell'ordine. Lo usiamo
   // per controllare che ogni riga sia al suo posto (nessuna ora mancante o duplicata).
   const expected = new Date(Date.UTC(2001, 0, 1)) // 2001: anno non bisestile qualsiasi
+  const windSpeedClamped: Tmy['windSpeedClamped'] = []
 
   const hours = rows.map((row, i): TmyHour => {
     const path = `outputs.tmy_hourly[${i}]`
@@ -203,13 +254,27 @@ export function parsePvgisTmy(json: unknown): Tmy {
     if (time.getUTCFullYear() !== yearOfMonth.get(month)) {
       throw new PvgisError(`Risposta PVGIS non valida: l'anno in "${path}" non coincide con i mesi scelti`)
     }
+    // Qui `expected` coincide con mese, giorno e ora della riga (controllato sopra), ma
+    // nel calendario non bisestile: è quello giusto per la finestra dei cambi di mese.
+    const nearMonthJunction = isNearMonthJunction(expected)
     expected.setUTCHours(expected.getUTCHours() + 1)
 
     const values = {} as Record<(typeof COLUMNS)[number]['field'], number>
     for (const c of COLUMNS) {
-      const v = num(row, c.key, `${path}.${c.key}`)
+      let v = num(row, c.key, `${path}.${c.key}`)
       if (c.nonNegative && v < 0) {
-        throw new PvgisError(`Risposta PVGIS non valida: "${path}.${c.key}" è negativo (${v})`)
+        if (c.key === 'WS10m' && nearMonthJunction) {
+          // Artefatto della rampa di raccordo tra mesi: vedi MONTH_JUNCTION_HOURS.
+          windSpeedClamped.push({ index: i, originalMs: v })
+          v = 0
+        } else if (c.key === 'WS10m') {
+          throw new PvgisError(
+            `Risposta PVGIS non valida: "${path}.${c.key}" è negativo (${v}) lontano da un cambio ` +
+              `di mese (accettato solo nelle ${MONTH_JUNCTION_HOURS} ore prima e dopo)`,
+          )
+        } else {
+          throw new PvgisError(`Risposta PVGIS non valida: "${path}.${c.key}" è negativo (${v})`)
+        }
       }
       values[c.field] = v
     }
@@ -227,6 +292,7 @@ export function parsePvgisTmy(json: unknown): Tmy {
     yearMax: num(meteo, 'year_max', 'inputs.meteo_data.year_max'),
     monthsSelected,
     hours,
+    windSpeedClamped,
   }
 }
 
