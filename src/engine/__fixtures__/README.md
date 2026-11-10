@@ -120,3 +120,28 @@ risposta vuota: basta riprovare dopo qualche secondo.
 
 Se riscaricandoli il contenuto è diverso, il JRC ha aggiornato le banche dati: vanno
 rimisurati i valori attesi in `simulate.test.ts` (compreso il valore di non regressione).
+
+## Livorno (issue #28)
+
+Anno meteorologico tipo (TMY) di PVGIS 5.3 per **Livorno centro**: è un punto in cui PVGIS dà
+un vento `WS10m` **negativo** in 2 ore (1/8/2020 alle 6 e alle 7 UTC, indici 5094 e 5095:
+−0,25 e −0,52 m/s), subito dopo un cambio di mese. Serve a verificare che il parser porti
+quelle ore a 0 m/s e le registri in `windSpeedClamped` (spiegazione in `pvgisTmy.ts`).
+Usato in `pvgisTmy.test.ts` e per un valore di non regressione in `simulate.test.ts`.
+
+| | |
+|---|---|
+| Scaricato il | 10/11/2026 (due volte, dal tech-lead e dal SWD: stesso hash) |
+| Posizione | lat 43,5485 — lon 10,3106 (centro città) |
+| Banche dati | PVGIS-SARAH3 (radiazione), ERA5 (meteo), anni 2005–2023; orizzonte predefinito di PVGIS |
+| Dimensione | 1 269 736 byte |
+| SHA-256 | `ebd4388f927ddb8c6b6f3e5a96517d2b0c1d8e6595d6e269f4ef707c76cd4ba1` |
+
+```bash
+curl -sS -A irradia-dev-proxy -o pvgis-tmy-livorno.json \
+  "https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=43.5485&lon=10.3106&outputformat=json"
+```
+
+Come per gli altri file: controllare che sia JSON e che l'hash coincida. Se cambia, il JRC ha
+aggiornato le banche dati: vanno rimisurati le ore negative attese in `pvgisTmy.test.ts` e il
+valore di non regressione di Livorno in `simulate.test.ts`.
