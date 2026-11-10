@@ -694,3 +694,44 @@ test.describe('impaginazione con la mappa aperta', () => {
     expect(hit).toBe('barra')
   })
 })
+
+test.describe('controlli di zoom disattivati e segnaposto (build di produzione)', () => {
+  for (const tema of ['light', 'dark'] as const) {
+    test(`tema ${tema}: il pulsante di zoom disattivato resta leggibile (≥ 4,5:1 sui colori del tema)`, async ({ page, pvgis }) => {
+      await page.emulateMedia({ colorScheme: tema })
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      await attendiMappa(page)
+      const riduci = page.getByRole('button', { name: 'Riduci' })
+      for (let i = 0; i < 8 && (await riduci.getAttribute('aria-disabled')) !== 'true'; i++) {
+        await riduci.click()
+        await fotogrammi(page)
+      }
+      await expect(riduci).toHaveAttribute('aria-disabled', 'true')
+      const s = await page.evaluate(() => {
+        const g = getComputedStyle(document.querySelector('.leaflet-control-zoom-out') as HTMLElement)
+        const b = getComputedStyle(document.querySelector('.leaflet-bar') as HTMLElement)
+        return { fg: g.color, bg: g.backgroundColor, border: b.borderTopWidth }
+      })
+      expect(contrasto(leggi(s.fg), leggi(s.bg))).toBeGreaterThanOrEqual(4.5)
+      expect(s.border).toBe('1px')
+    })
+  }
+
+  for (const tema of ['light', 'dark'] as const) {
+    test(`telefono, tema ${tema}: il pulsante "Scegli sulla mappa" mantiene i suoi stili (altezza, bordo, contrasto)`, async ({ page, pvgis }) => {
+      await page.emulateMedia({ colorScheme: tema })
+      await page.setViewportSize({ width: 360, height: 800 })
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      const st = await page.getByRole('button', { name: 'Scegli sulla mappa' }).evaluate((e) => {
+        const c = getComputedStyle(e)
+        return { h: e.getBoundingClientRect().height, border: c.borderTopWidth, fg: c.color }
+      })
+      const sfondo = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+      expect(st.h).toBeGreaterThanOrEqual(44)
+      expect(st.border).toBe('1px')
+      expect(contrasto(leggi(st.fg), leggi(sfondo))).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+})
