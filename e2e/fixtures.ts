@@ -17,11 +17,13 @@ const FIXTURE_DIR = 'src/engine/__fixtures__'
 const BODIES = {
   roma: readFileSync(`${FIXTURE_DIR}/pvgis-tmy-roma.json`, 'utf-8'),
   milano: readFileSync(`${FIXTURE_DIR}/pvgis-tmy-milano.json`, 'utf-8'),
+  livorno: readFileSync(`${FIXTURE_DIR}/pvgis-tmy-livorno.json`, 'utf-8'),
 }
 /** Punti di cui abbiamo la risposta salvata (coordinate del file README dei fixture). */
 const CITIES = [
   { name: 'roma', lat: 41.9028, lon: 12.4964 },
   { name: 'milano', lat: 45.4642, lon: 9.19 },
+  { name: 'livorno', lat: 43.5485, lon: 10.3106 }, // vento negativo nelle ore 5094-5095 (issue #28)
 ] as const
 
 export interface PvgisRequest {
@@ -38,6 +40,9 @@ function nearestBody(lat: number, lon: number): string {
   const best = [...CITIES].sort((a, b) => d(a) - d(b))[0]
   return BODIES[best.name]
 }
+
+/** Testo JSON dei fixture, per costruire varianti nelle prove (es. un vento negativo fuori finestra). */
+export const FIXTURE_BODIES: Readonly<Record<string, string>> = BODIES
 
 const defaultHandler: PvgisHandler = (route, { lat, lon }) =>
   route.fulfill({ status: 200, contentType: 'application/json', body: nearestBody(lat, lon) })
@@ -57,6 +62,11 @@ export class PvgisMock {
   }
   useDefault(): void {
     this.handler = defaultHandler
+  }
+
+  /** Risponde sempre con il testo JSON dato (es. un TMY derivato da un fixture e modificato). */
+  body(json: string): void {
+    this.use((route) => route.fulfill({ status: 200, contentType: 'application/json', body: json }))
   }
 
   /** Errore HTTP con il corpo JSON `{ message }` come fa PVGIS (es. posizione in mare). */
