@@ -41,6 +41,12 @@ function nearestBody(lat: number, lon: number): string {
   return BODIES[best.name]
 }
 
+/** Corpi REALI degli errori di PVGIS (mare 36/-20, fuori copertura 70.98/-8.5): vedi README dei fixture. */
+export const PVGIS_ERROR_BODIES = {
+  sea: readFileSync(`${FIXTURE_DIR}/pvgis-error-sea.json`, 'utf-8'),
+  coverage: readFileSync(`${FIXTURE_DIR}/pvgis-error-coverage.json`, 'utf-8'),
+} as const
+
 /** Testo JSON dei fixture, per costruire varianti nelle prove (es. un vento negativo fuori finestra). */
 export const FIXTURE_BODIES: Readonly<Record<string, string>> = BODIES
 
@@ -74,6 +80,11 @@ export class PvgisMock {
     this.use((route) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ message }) }),
     )
+  }
+  /** Errore HTTP con un corpo JSON qualsiasi (es. quello reale di src/engine/__fixtures__/pvgis-error-*.json). */
+  failWithBody(status: number, json: string | object): void {
+    const body = typeof json === 'string' ? json : JSON.stringify(json)
+    this.use((route) => route.fulfill({ status, contentType: 'application/json', body }))
   }
   /** Pagina HTML con codice 200, come il firewall di PVGIS ("Request Rejected"). */
   firewallHtml(): void {
