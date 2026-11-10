@@ -66,19 +66,78 @@ export interface Tmy {
   windSpeedClamped: { index: number; originalMs: number }[]
 }
 
+/**
+ * Tipo di un `PvgisError`: dice PERCHÉ non abbiamo l'anno tipo, così l'interfaccia può
+ * scegliere un testo adatto senza leggere il messaggio tecnico. Unione chiusa: aggiungere
+ * un tipo fa fallire la compilazione dove i tipi sono elencati con uno `switch` esaustivo.
+ * - `seaLocation`: PVGIS dice che il punto è in mare (risposta 4xx, vedi `PVGIS_SEA_PHRASE`).
+ * - `outsideCoverage`: PVGIS dice che il punto è fuori dalla sua zona coperta
+ *   (risposta 4xx, vedi `PVGIS_COVERAGE_PHRASE`).
+ * - `rejected`: qualunque altra risposta di errore HTTP con un corpo JSON (es. parametri
+ *   sbagliati, errori del server, o un testo di PVGIS che non riconosciamo più).
+ * - `notJson`: la risposta non è JSON (es. pagina HTML del firewall, anche con codice 200).
+ * - `network`: la richiesta non è arrivata a una risposta (rete assente, proxy spento…).
+ * - `invalidData`: risposta JSON con esito positivo ma contenuto non valido per il lettore.
+ */
+export type PvgisErrorKind = 'seaLocation' | 'outsideCoverage' | 'rejected' | 'notJson' | 'network' | 'invalidData'
+
 /** Errore di lettura o di scaricamento dei dati PVGIS. */
 export class PvgisError extends Error {
+  /** Perché non abbiamo i dati (vedi `PvgisErrorKind`). */
+  readonly kind: PvgisErrorKind
   /** Codice HTTP della risposta, se l'errore viene da una risposta del server. */
   readonly status?: number
   /** Errore originale che ha causato questo (es. l'errore di rete). */
   readonly cause?: unknown
 
-  constructor(message: string, options?: { status?: number; cause?: unknown }) {
+  /**
+   * `message` è un testo tecnico (con il dettaglio originale di PVGIS quando c'è), utile per
+   * la diagnosi: i testi per l'utente li sceglie l'interfaccia in base a `kind`.
+   * `kind` è obbligatorio: ogni punto che lancia l'errore deve dichiararne il tipo.
+   */
+  constructor(message: string, options: { kind: PvgisErrorKind; status?: number; cause?: unknown }) {
     super(message)
     this.name = 'PvgisError'
-    this.status = options?.status
-    this.cause = options?.cause
+    this.kind = options.kind
+    this.status = options.status
+    this.cause = options.cause
   }
+}
+
+/** Errore del lettore: la risposta è arrivata ma il suo contenuto non è valido. */
+function invalidData(message: string): PvgisError {
+  return new PvgisError(message, { kind: 'invalidData' })
+}
+
+/**
+ * Frasi con cui PVGIS spiega perché rifiuta un punto, nel campo `message` della risposta JSON.
+ * Fonte: risposte reali di PVGIS v5_3 (strumento "tmy") verificate il 10/11/2026, entrambe con
+ * HTTP 400 e `Content-Type: application/json` (salvate in `__fixtures__/pvgis-error-*.json`):
+ * - lat 36, lon −20 (Atlantico): "Location over the sea. Please, select another location".
+ *   PVGIS dà lo stesso testo anche per terre emerse fuori copertura (es. Svalbard).
+ * - lat 70,98, lon −8,5 (Jan Mayen): "Location out of the spatial coverage of PVGIS5".
+ * Cerchiamo solo una parte stabile della frase (senza "PVGIS5", che cambierebbe con la
+ * versione), ignorando maiuscole e spazi multipli. Se il JRC cambia il testo, l'errore
+ * diventa `rejected`: il messaggio torna generico, ma nulla si rompe.
+ */
+export const PVGIS_SEA_PHRASE = 'over the sea'
+export const PVGIS_COVERAGE_PHRASE = 'out of the spatial coverage'
+
+/** Minuscole e spazi (anche a capo, tabulazioni) ridotti a uno solo: per confrontare le frasi. */
+const normalizePhrase = (text: string): string => text.toLowerCase().replace(/\s+/g, ' ')
+
+/**
+ * Tipo di una risposta di errore HTTP con corpo JSON. Mare e copertura solo per i codici
+ * 4xx (errore della richiesta: il punto scelto): un 5xx è un guasto del server anche se
+ * il testo contenesse una delle frasi.
+ */
+function rejectionKind(status: number, detail: string | undefined): PvgisErrorKind {
+  if (status >= 400 && status < 500 && detail !== undefined) {
+    const text = normalizePhrase(detail)
+    if (text.includes(PVGIS_SEA_PHRASE)) return 'seaLocation'
+    if (text.includes(PVGIS_COVERAGE_PHRASE)) return 'outsideCoverage'
+  }
+  return 'rejected'
 }
 
 /**
@@ -144,27 +203,27 @@ const isObj = (x: unknown): x is Obj => typeof x === 'object' && x !== null && !
 
 function obj(parent: unknown, key: string, path: string): Obj {
   const v = isObj(parent) ? parent[key] : undefined
-  if (!isObj(v)) throw new PvgisError(`Risposta PVGIS non valida: manca l'oggetto "${path}"`)
+  if (!isObj(v)) throw invalidData(`Risposta PVGIS non valida: manca l'oggetto "${path}"`)
   return v
 }
 
 function arr(parent: Obj, key: string, path: string): unknown[] {
   const v = parent[key]
-  if (!Array.isArray(v)) throw new PvgisError(`Risposta PVGIS non valida: manca l'elenco "${path}"`)
+  if (!Array.isArray(v)) throw invalidData(`Risposta PVGIS non valida: manca l'elenco "${path}"`)
   return v
 }
 
 function num(parent: Obj, key: string, path: string): number {
   const v = parent[key]
   if (typeof v !== 'number' || !Number.isFinite(v)) {
-    throw new PvgisError(`Risposta PVGIS non valida: "${path}" non è un numero finito`)
+    throw invalidData(`Risposta PVGIS non valida: "${path}" non è un numero finito`)
   }
   return v
 }
 
 function str(parent: Obj, key: string, path: string): string {
   const v = parent[key]
-  if (typeof v !== 'string') throw new PvgisError(`Risposta PVGIS non valida: "${path}" non è un testo`)
+  if (typeof v !== 'string') throw invalidData(`Risposta PVGIS non valida: "${path}" non è un testo`)
   return v
 }
 
@@ -185,7 +244,7 @@ function parsePvgisTime(text: string, path: string): Date {
       return date
     }
   }
-  throw new PvgisError(`Risposta PVGIS non valida: data "${text}" in "${path}" non riconosciuta`)
+  throw invalidData(`Risposta PVGIS non valida: data "${text}" in "${path}" non riconosciuta`)
 }
 
 /**
@@ -210,26 +269,26 @@ export function parsePvgisTmy(json: unknown): Tmy {
     const path = `meta.outputs.tmy_hourly.variables.${c.key}`
     const unit = str(obj(metaVars, c.key, path), 'units', `${path}.units`)
     if (unit !== c.unit) {
-      throw new PvgisError(`Unità inattesa per ${c.key}: PVGIS dichiara "${unit}", atteso "${c.unit}"`)
+      throw invalidData(`Unità inattesa per ${c.key}: PVGIS dichiara "${unit}", atteso "${c.unit}"`)
     }
   }
 
   // 2. Mesi scelti: esattamente uno per ciascun mese 1-12
   const monthsSelected = arr(outputs, 'months_selected', 'outputs.months_selected').map((x, i) => {
     const path = `outputs.months_selected[${i}]`
-    if (!isObj(x)) throw new PvgisError(`Risposta PVGIS non valida: "${path}" non è un oggetto`)
+    if (!isObj(x)) throw invalidData(`Risposta PVGIS non valida: "${path}" non è un oggetto`)
     return { month: num(x, 'month', `${path}.month`), year: num(x, 'year', `${path}.year`) }
   })
   const months = monthsSelected.map((m) => m.month).sort((a, b) => a - b)
   if (months.length !== 12 || months.some((m, i) => m !== i + 1)) {
-    throw new PvgisError('Risposta PVGIS non valida: i mesi scelti non sono esattamente 1-12')
+    throw invalidData('Risposta PVGIS non valida: i mesi scelti non sono esattamente 1-12')
   }
   const yearOfMonth = new Map(monthsSelected.map((m) => [m.month, m.year]))
 
   // 3. Dati orari
   const rows = arr(outputs, 'tmy_hourly', 'outputs.tmy_hourly')
   if (rows.length !== TMY_HOURS) {
-    throw new PvgisError(`Risposta PVGIS non valida: ${rows.length} ore invece di ${TMY_HOURS}`)
+    throw invalidData(`Risposta PVGIS non valida: ${rows.length} ore invece di ${TMY_HOURS}`)
   }
 
   // Calendario atteso: tutte le ore di un anno non bisestile, nell'ordine. Lo usiamo
@@ -239,7 +298,7 @@ export function parsePvgisTmy(json: unknown): Tmy {
 
   const hours = rows.map((row, i): TmyHour => {
     const path = `outputs.tmy_hourly[${i}]`
-    if (!isObj(row)) throw new PvgisError(`Risposta PVGIS non valida: "${path}" non è un oggetto`)
+    if (!isObj(row)) throw invalidData(`Risposta PVGIS non valida: "${path}" non è un oggetto`)
 
     const time = parsePvgisTime(str(row, 'time(UTC)', `${path}.time(UTC)`), path)
     const month = time.getUTCMonth() + 1
@@ -249,10 +308,10 @@ export function parsePvgisTmy(json: unknown): Tmy {
       time.getUTCHours() !== expected.getUTCHours() ||
       time.getUTCMinutes() !== 0
     ) {
-      throw new PvgisError(`Risposta PVGIS non valida: ora fuori sequenza in "${path}"`)
+      throw invalidData(`Risposta PVGIS non valida: ora fuori sequenza in "${path}"`)
     }
     if (time.getUTCFullYear() !== yearOfMonth.get(month)) {
-      throw new PvgisError(`Risposta PVGIS non valida: l'anno in "${path}" non coincide con i mesi scelti`)
+      throw invalidData(`Risposta PVGIS non valida: l'anno in "${path}" non coincide con i mesi scelti`)
     }
     // Qui `expected` coincide con mese, giorno e ora della riga (controllato sopra), ma
     // nel calendario non bisestile: è quello giusto per la finestra dei cambi di mese.
@@ -268,12 +327,12 @@ export function parsePvgisTmy(json: unknown): Tmy {
           windSpeedClamped.push({ index: i, originalMs: v })
           v = 0
         } else if (c.key === 'WS10m') {
-          throw new PvgisError(
+          throw invalidData(
             `Risposta PVGIS non valida: "${path}.${c.key}" è negativo (${v}) lontano da un cambio ` +
               `di mese (accettato solo nelle ${MONTH_JUNCTION_HOURS} ore prima e dopo)`,
           )
         } else {
-          throw new PvgisError(`Risposta PVGIS non valida: "${path}.${c.key}" è negativo (${v})`)
+          throw invalidData(`Risposta PVGIS non valida: "${path}.${c.key}" è negativo (${v})`)
         }
       }
       values[c.field] = v
@@ -336,7 +395,7 @@ export async function fetchPvgisTmy(
   } catch (err) {
     // Un annullamento voluto non è un errore di PVGIS: lo lasciamo passare così com'è.
     if (options.signal?.aborted) throw err
-    throw new PvgisError('Impossibile contattare PVGIS (rete non disponibile?)', { cause: err })
+    throw new PvgisError('Impossibile contattare PVGIS (rete non disponibile?)', { kind: 'network', cause: err })
   }
 
   let body: unknown
@@ -344,6 +403,7 @@ export async function fetchPvgisTmy(
     body = await response.json()
   } catch (err) {
     throw new PvgisError(`Risposta PVGIS non leggibile come JSON (HTTP ${response.status})`, {
+      kind: 'notJson',
       status: response.status,
       cause: err,
     })
@@ -351,8 +411,9 @@ export async function fetchPvgisTmy(
 
   if (!response.ok) {
     // PVGIS spiega l'errore nel campo "message" (es. "Location over the sea...").
-    const detail = isObj(body) && typeof body.message === 'string' ? body.message : 'nessun dettaglio'
-    throw new PvgisError(`PVGIS ha rifiutato la richiesta (HTTP ${response.status}): ${detail}`, {
+    const detail = isObj(body) && typeof body.message === 'string' ? body.message : undefined
+    throw new PvgisError(`PVGIS ha rifiutato la richiesta (HTTP ${response.status}): ${detail ?? 'nessun dettaglio'}`, {
+      kind: rejectionKind(response.status, detail),
       status: response.status,
     })
   }

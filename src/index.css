@@ -183,6 +183,8 @@ input[aria-invalid='true'] { border-color: var(--error); }
   .sticky-unit { font-size: 14px; font-weight: 400; color: var(--muted); }
   .sticky-msg { font-size: 14px; font-weight: 400; color: var(--muted); white-space: normal; }
   .sticky-msg.error { color: var(--error); }
+  /* Testi brevi d'errore (#11): sempre su una riga; se manca spazio va a capo l'etichetta generica. */
+  .sticky-short { white-space: nowrap; }
 }
 
 /* Barra fissa: numero del totale precedente (aggiornamento o errore), attenuato come `.stale`. */

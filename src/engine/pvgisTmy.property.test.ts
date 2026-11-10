@@ -1,7 +1,7 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import romaRaw from './__fixtures__/pvgis-tmy-roma.json'
-import { PvgisError, fetchPvgisTmy, parsePvgisTmy } from './pvgisTmy'
+import { PVGIS_COVERAGE_PHRASE, PVGIS_SEA_PHRASE, PvgisError, fetchPvgisTmy, parsePvgisTmy } from './pvgisTmy'
 
 // Il lettore deve RIFIUTARE (PvgisError) qualunque risposta malformata invece di restituire numeri
 // sbagliati, e non deve mai lasciar uscire un TypeError/RangeError generico.
@@ -213,6 +213,52 @@ describe('fetchPvgisTmy (proprietà, con fetch finta)', () => {
     const f: typeof fetch = async () => new Response(null, { status: 204 })
     await expect(fetchPvgisTmy(41.9, 12.5, { baseUrl: '/api/pvgis', fetch: f })).rejects.toBeInstanceOf(PvgisError)
   })
+
+  // Issue #11: il tipo dell'errore di una risposta HTTP con JSON dipende solo da stato e testo.
+  const erroreHttp = fc.integer({ min: 400, max: 599 })
+  const contiene = (testo: string, frase: string) => testo.toLowerCase().replace(/\s+/g, ' ').includes(frase)
+  const tipoDi = async (status: number, message: unknown) => {
+    const f = finta(status, JSON.stringify({ message, status }))
+    const err = await fetchPvgisTmy(41.9, 12.5, { baseUrl: '/api/pvgis', fetch: f }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PvgisError)
+    return (err as PvgisError).kind
+  }
+
+  it('qualunque message senza le due frasi di PVGIS, con qualunque stato di errore → rejected', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        erroreHttp,
+        fc
+          .oneof(fc.string(), fc.string({ unit: 'grapheme-ascii' }), fc.lorem({ maxCount: 12 }))
+          .filter((m) => !contiene(m, PVGIS_SEA_PHRASE) && !contiene(m, PVGIS_COVERAGE_PHRASE)),
+        async (status, message) => {
+          expect(await tipoDi(status, message)).toBe('rejected')
+        },
+      ),
+      { numRuns: 200 },
+    )
+  }, TIMEOUT_MS)
+
+  it('una frase di PVGIS con maiuscole e spazi a caso dentro un testo qualsiasi → riconosciuta solo con 4xx', async () => {
+    // Ogni lettera in maiuscolo o minuscolo, ogni spazio sostituito da 1-3 spazi bianchi qualsiasi.
+    const spazio = fc.string({ unit: fc.constantFrom(' ', '\t', '\n', '\r'), minLength: 1, maxLength: 3 })
+    const variante = (frase: string) =>
+      fc
+        .tuple(...[...frase].map((c) => (c === ' ' ? spazio : fc.constantFrom(c.toLowerCase(), c.toUpperCase()))))
+        .map((pezzi) => pezzi.join(''))
+    const caso = fc
+      .constantFrom(['seaLocation', PVGIS_SEA_PHRASE] as const, ['outsideCoverage', PVGIS_COVERAGE_PHRASE] as const)
+      .chain(([tipo, frase]) => variante(frase).map((testo) => ({ tipo, testo })))
+    await fc.assert(
+      fc.asyncProperty(erroreHttp, caso, fc.string(), fc.string(), async (status, { tipo, testo }, prima, dopo) => {
+        const message = `${prima} ${testo} ${dopo}`
+        // Se il testo a caso contiene ANCHE la frase del mare, il mare ha la precedenza.
+        const atteso = status < 500 ? (contiene(message, PVGIS_SEA_PHRASE) ? 'seaLocation' : tipo) : 'rejected'
+        expect(await tipoDi(status, message)).toBe(atteso)
+      }),
+      { numRuns: 200 },
+    )
+  }, TIMEOUT_MS)
 
   it('coordinate fuori intervallo o NaN → RangeError prima di qualunque richiesta', async () => {
     let chiamate = 0

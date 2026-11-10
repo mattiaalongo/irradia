@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import raw from './__fixtures__/pvgis-tmy-roma.json'
 import livornoRaw from './__fixtures__/pvgis-tmy-livorno.json'
 import milanoRaw from './__fixtures__/pvgis-tmy-milano.json'
+import seaErrorRaw from './__fixtures__/pvgis-error-sea.json'
+import coverageErrorRaw from './__fixtures__/pvgis-error-coverage.json'
 import { fetchPvgisTmy, parsePvgisTmy, PvgisError, pvgisTmyUrl, TMY_HOURS, type Tmy } from './pvgisTmy'
 import { solarPosition } from './solarPosition'
 
@@ -381,5 +383,134 @@ describe('fetchPvgisTmy — con una finta fetch (nessuna rete)', () => {
     const f = fakeFetch(async () => Response.json(raw))
     await expect(fetchPvgisTmy(100, 0, { baseUrl: '/api/pvgis', fetch: f.fn })).rejects.toThrow(RangeError)
     expect(f.calls).toHaveLength(0)
+  })
+})
+
+describe('fetchPvgisTmy — tipo dell\'errore (kind), issue #11', () => {
+  /** Finta fetch che risponde con un corpo testuale, un codice HTTP e (di default) un Content-Type JSON. */
+  const respond =
+    (body: string, status: number, contentType = 'application/json'): typeof fetch =>
+    async () =>
+      new Response(body, { status, headers: { 'content-type': contentType } })
+
+  /** Esegue la richiesta e restituisce l'errore (fallisce se la promessa si risolve). */
+  async function failure(f: typeof fetch): Promise<PvgisError> {
+    const err = await fetchPvgisTmy(41.9, 12.5, { baseUrl: '/api/pvgis', fetch: f }).then(
+      () => expect.unreachable('doveva fallire'),
+      (e: unknown) => e,
+    )
+    expect(err).toBeInstanceOf(PvgisError)
+    return err as PvgisError
+  }
+
+  // Corpi reali di PVGIS v5_3 (HTTP 400, application/json), scaricati il 10/11/2026: vedi
+  // __fixtures__/README.md. Per oggetti così semplici JSON.stringify ridà gli stessi byte del file.
+  const SEA_BODY = JSON.stringify(seaErrorRaw)
+  const COVERAGE_BODY = JSON.stringify(coverageErrorRaw)
+
+  it('i fixture sono le risposte reali attese (testo e stato)', () => {
+    expect(seaErrorRaw).toEqual({ message: 'Location over the sea. Please, select another location', status: 400 })
+    expect(coverageErrorRaw).toEqual({ message: 'Location out of the spatial coverage of PVGIS5', status: 400 })
+  })
+
+  it('punto in mare (lat 36, lon −20, risposta reale) → seaLocation, con stato e testo originale', async () => {
+    const err = await failure(respond(SEA_BODY, 400))
+    expect(err.kind).toBe('seaLocation')
+    expect(err.status).toBe(400)
+    expect(err.message).toBe(
+      'PVGIS ha rifiutato la richiesta (HTTP 400): Location over the sea. Please, select another location',
+    )
+  })
+
+  it('fuori copertura (Jan Mayen, lat 70,98, lon −8,5, risposta reale) → outsideCoverage', async () => {
+    const err = await failure(respond(COVERAGE_BODY, 400))
+    expect(err.kind).toBe('outsideCoverage')
+    expect(err.status).toBe(400)
+    expect(err.message).toContain('Location out of the spatial coverage of PVGIS5')
+  })
+
+  it('anche gli altri codici 4xx riconoscono le frasi (es. 404, 422)', async () => {
+    expect((await failure(respond(SEA_BODY, 404))).kind).toBe('seaLocation')
+    expect((await failure(respond(COVERAGE_BODY, 422))).kind).toBe('outsideCoverage')
+  })
+
+  it('maiuscole e spazi diversi (anche a capo e tabulazioni) → riconosciuto', async () => {
+    const body = (message: string) => JSON.stringify({ message, status: 400 })
+    expect((await failure(respond(body('LOCATION OVER   THE SEA.'), 400))).kind).toBe('seaLocation')
+    expect((await failure(respond(body('Location Over\n\tthe  Sea'), 400))).kind).toBe('seaLocation')
+    expect((await failure(respond(body('location OUT of  the\nSPATIAL coverage'), 400))).kind).toBe('outsideCoverage')
+  })
+
+  it('testo sconosciuto (parametro sbagliato, risposta reale del 10/11/2026) → rejected con il testo originale', async () => {
+    const message = 'lat: Incorrect value. Please, enter a float between -90 and 90.'
+    const err = await failure(respond(JSON.stringify({ message, status: 400 }), 400))
+    expect(err.kind).toBe('rejected')
+    expect(err.status).toBe(400)
+    expect(err.message).toBe(`PVGIS ha rifiutato la richiesta (HTTP 400): ${message}`)
+  })
+
+  it('"over the sea" con un errore del server (5xx) → rejected, non seaLocation', async () => {
+    for (const status of [500, 502, 503]) {
+      const err = await failure(respond(SEA_BODY, status))
+      expect(err.kind, String(status)).toBe('rejected')
+      expect(err.status).toBe(status)
+    }
+    expect((await failure(respond(COVERAGE_BODY, 500))).kind).toBe('rejected')
+  })
+
+  it('"over the sea" in una risposta ok (200) → invalidData del lettore, non seaLocation', async () => {
+    const err = await failure(respond(SEA_BODY, 200))
+    expect(err.kind).toBe('invalidData')
+    expect(err.status).toBeUndefined()
+  })
+
+  it('errore HTTP con JSON senza "message" testuale → rejected, "nessun dettaglio"', async () => {
+    for (const body of ['{}', '{"message":42}', '[]', 'null', '"over the sea"']) {
+      const err = await failure(respond(body, 400))
+      expect(err.kind, body).toBe('rejected')
+      expect(err.message).toBe('PVGIS ha rifiutato la richiesta (HTTP 400): nessun dettaglio')
+    }
+  })
+
+  it('risposta non JSON (pagina HTML del firewall, anche con codice 200) → notJson', async () => {
+    for (const status of [200, 400, 502]) {
+      const err = await failure(respond('<html>Request Rejected</html>', status, 'text/html'))
+      expect(err.kind, String(status)).toBe('notJson')
+      expect(err.status).toBe(status)
+    }
+  })
+
+  it('errore di rete → network, con la causa originale', async () => {
+    const cause = new TypeError('fetch failed')
+    const err = await failure(async () => {
+      throw cause
+    })
+    expect(err.kind).toBe('network')
+    expect(err.status).toBeUndefined()
+    expect(err.cause).toBe(cause)
+  })
+
+  it('ogni errore del lettore → invalidData', () => {
+    const cases: [string, (j: any) => void][] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
+      ['manca outputs', (j) => delete j.outputs],
+      ['unità diversa', (j) => (j.meta.outputs.tmy_hourly.variables['G(h)'].units = 'kW/m2')],
+      ['mesi scelti', (j) => j.outputs.months_selected.pop()],
+      ['ore mancanti', (j) => j.outputs.tmy_hourly.pop()],
+      ['data illeggibile', (j) => (j.outputs.tmy_hourly[0]['time(UTC)'] = 'ieri')],
+      ['irradianza negativa', (j) => (j.outputs.tmy_hourly[100]['G(h)'] = -1)],
+      ['vento negativo fuori finestra', (j) => (j.outputs.tmy_hourly[100].WS10m = -1)],
+    ]
+    for (const [name, alter] of cases) {
+      const j = rawCopy()
+      alter(j)
+      let err: unknown
+      try {
+        parsePvgisTmy(j)
+      } catch (e) {
+        err = e
+      }
+      expect(err, name).toBeInstanceOf(PvgisError)
+      expect((err as PvgisError).kind, name).toBe('invalidData')
+    }
   })
 })
