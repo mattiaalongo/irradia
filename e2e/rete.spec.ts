@@ -105,9 +105,10 @@ test.describe('errori di PVGIS', () => {
     await avvio(page, pvgis)
   }
 
-  const scenari: { nome: string; attiva: (p: PvgisMock) => void; testo: RegExp; consoleAttesa: boolean }[] = [
-    { nome: 'HTTP 400 con messaggio JSON', attiva: (p) => p.fail(400, 'Location over the sea. Please, select another location'),
-      testo: /HTTP 400.*Location over the sea/, consoleAttesa: true },
+  const scenari: { nome: string; attiva: (p: PvgisMock) => void; testo: RegExp; consoleAttesa: boolean; generico?: false }[] = [
+    // Mare: testo dedicato, senza "HTTP 400" né inglese (issue #11).
+    { nome: 'HTTP 400 in mare', attiva: (p) => p.fail(400, 'Location over the sea. Please, select another location'),
+      testo: /Il punto scelto risulta in mare.*Scegli un punto sulla terraferma\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
     { nome: 'pagina HTML con codice 200 (firewall)', attiva: (p) => p.firewallHtml(),
       testo: /non leggibile come JSON/, consoleAttesa: false },
     { nome: 'rete assente', attiva: (p) => p.offline(),
@@ -129,7 +130,7 @@ test.describe('errori di PVGIS', () => {
 
       const avviso = page.getByRole('alert')
       await expect(avviso).toBeVisible()
-      await expect(avviso).toContainText(MSG)
+      if (s.generico !== false) await expect(avviso).toContainText(MSG)
       await expect(avviso).toContainText(s.testo)
       await expect(page.locator('body')).not.toContainText('NaN')
       // Il risultato di Roma resta (attenuato), identico a prima.
@@ -182,7 +183,7 @@ test.describe('errori di PVGIS', () => {
         return pvgis.count
       })
       .toBe(1)
-    await expect(page.getByRole('alert')).toContainText(MSG)
+    await expect(page.getByRole('alert')).toContainText('Il punto scelto risulta in mare')
     await expect(totale(page)).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('NaN')
   })

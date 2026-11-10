@@ -63,12 +63,12 @@ test.describe('stati della barra', () => {
     expect(numero(await barra(page).innerText())).not.toBe(vecchio)
   })
 
-  test('errore PVGIS al primo caricamento: "Dati non disponibili", senza NaN', async ({ page, pvgis, consoleGuard }) => {
+  test('errore PVGIS al primo caricamento (mare): "Punto in mare", senza NaN', async ({ page, pvgis, consoleGuard }) => {
     consoleGuard.allow(/Failed to load resource/)
     pvgis.fail(400, 'Location over the sea. Please, select another location')
     await avviaSenzaRisposta(page, pvgis)
     await expect(page.getByRole('alert')).toBeVisible()
-    await expect(barra(page)).toContainText('Dati non disponibili')
+    await expect(barra(page)).toContainText('Punto in mare')
     await expect(barra(page)).not.toContainText('kWh')
     await expect(barra(page)).not.toContainText('NaN')
   })
@@ -83,7 +83,7 @@ test.describe('stati della barra', () => {
     await expect(page.getByRole('alert')).toBeVisible()
     // Con un risultato precedente l'app lo mostra (attenuato): la barra deve dire lo stesso numero,
     // avvisare che non è aggiornato e non dire "Aggiorno…" (nessun download in corso).
-    await expect(barra(page)).toContainText('Dati non aggiornati (errore)')
+    await expect(barra(page)).toContainText('Punto in mare')
     await expect(barra(page)).not.toContainText('Aggiorno')
     expect(numero(await barra(page).innerText())).toBe(vecchio)
     await expect(totale(page)).toContainText(`${vecchio} kWh`)
@@ -145,7 +145,7 @@ test.describe('impaginazione della barra', () => {
     await orologioFermo(page)
     pvgis.fail(400, 'Location over the sea. Please, select another location')
     await avviaSenzaRisposta(page, pvgis)
-    await expect(barra(page)).toContainText('Dati non disponibili')
+    await expect(barra(page)).toContainText('Punto in mare')
     const m = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
     expect(m[0]).toBeLessThanOrEqual(m[1])
     expect(await barra(page).evaluate((n) => n.scrollWidth <= n.clientWidth)).toBe(true)
@@ -214,7 +214,7 @@ test.describe('contrasto del testo della barra', () => {
         if (stato === 'errore') {
           pvgis.fail(400, 'Location over the sea')
           await avviaSenzaRisposta(page, pvgis)
-          await expect(barra(page)).toContainText('Dati non disponibili')
+          await expect(barra(page)).toContainText('Punto in mare')
         } else if (stato === 'caricamento') {
           pvgis.hold()
           await page.goto('/')

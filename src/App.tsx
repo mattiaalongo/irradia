@@ -7,6 +7,7 @@ import MonthlyChart from './ui/MonthlyChart'
 import NumberSlider from './ui/NumberSlider'
 import SiteFooter from './ui/SiteFooter'
 import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
+import { describeTmyError } from './ui/errorMessage'
 import { cardinalDirection, formatNumber } from './ui/format'
 import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from './ui/mapArea'
 import { useTmy } from './ui/useTmy'
@@ -46,10 +47,12 @@ export default function App() {
 
   const stale = tmyState.status !== 'ready'
 
+  const errorText = tmyState.status === 'error' ? describeTmyError(tmyState.error) : null
+
   let sticky: StickyTotalState
-  if (simulation && 'year' in simulation) sticky = { kind: 'ready', annualKwh: simulation.year.annualKwh, updating: tmyState.status === 'loading', failed: tmyState.status === 'error' }
+  if (simulation && 'year' in simulation) sticky = { kind: 'ready', annualKwh: simulation.year.annualKwh, updating: tmyState.status === 'loading', failed: tmyState.status === 'error', shortError: errorText?.short }
   else if (tmyState.status === 'loading') sticky = { kind: 'loading' }
-  else sticky = { kind: 'error' }
+  else sticky = { kind: 'error', shortError: errorText?.short }
 
   return (
     <main>
@@ -94,9 +97,11 @@ export default function App() {
 
         <section className="results" aria-label="Risultati" aria-busy={tmyState.status === 'loading'}>
           {tmyState.status === 'loading' && <p className="status">Scarico l'anno tipo da PVGIS…</p>}
-          {tmyState.status === 'error' && (
+          {errorText && (
             <p className="status error" role="alert">
-              Dati non disponibili per questa posizione. {tmyState.error.message}
+              {errorText.message}
+              {errorText.detail ? ` ${errorText.detail}` : ''}
+              {tmy ? ' I valori mostrati sono quelli della posizione precedente.' : ''}
             </p>
           )}
 
