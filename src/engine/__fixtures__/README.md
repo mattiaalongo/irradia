@@ -145,3 +145,33 @@ curl -sS -A irradia-dev-proxy -o pvgis-tmy-livorno.json \
 Come per gli altri file: controllare che sia JSON e che l'hash coincida. Se cambia, il JRC ha
 aggiornato le banche dati: vanno rimisurati le ore negative attese in `pvgisTmy.test.ts` e il
 valore di non regressione di Livorno in `simulate.test.ts`.
+
+## Risposte di errore di PVGIS (issue #11)
+
+Corpi delle risposte con cui PVGIS 5.3 (strumento "tmy") rifiuta un punto. Servono a verificare
+che `fetchPvgisTmy` riconosca il **punto in mare** e il **punto fuori copertura**
+(`PvgisError.kind`, frasi `PVGIS_SEA_PHRASE` e `PVGIS_COVERAGE_PHRASE` in `pvgisTmy.ts`).
+Usati in `pvgisTmy.test.ts`, serviti da una finta `fetch` con lo stesso codice HTTP.
+
+Scaricati il **10/11/2026** due volte (dal tech-lead e dal SWD: stessi byte e stesso hash).
+Entrambe le risposte: **HTTP 400**, `Content-Type: application/json`, nessun a capo finale.
+
+| File | Posizione | Testo di PVGIS (`message`) | Byte | SHA-256 |
+|---|---|---|---|---|
+| `pvgis-error-sea.json` | lat 36 — lon −20 (Oceano Atlantico, mare aperto) | "Location over the sea. Please, select another location" | 82 | `4006ef4198934c03060a21eb9831b2faedb0e47aac5225cb7e1eb3750f7fc12a` |
+| `pvgis-error-coverage.json` | lat 70,98 — lon −8,5 (Jan Mayen, terra fuori copertura) | "Location out of the spatial coverage of PVGIS5" | 74 | `bd35ca15f5e9cbbbbe2aaf97bd7e370abb62b6e534d4a220062c6cbbd91d7993` |
+
+```bash
+B="https://re.jrc.ec.europa.eu/api/v5_3"
+curl -sS -A irradia-dev-proxy -w '%{http_code} %{content_type}\n' -o pvgis-error-sea.json \
+  "$B/tmy?lat=36&lon=-20&outputformat=json"
+curl -sS -A irradia-dev-proxy -w '%{http_code} %{content_type}\n' -o pvgis-error-coverage.json \
+  "$B/tmy?lat=70.98&lon=-8.5&outputformat=json"
+```
+
+**Senza `-f`**: con `-f` curl non salverebbe il corpo di una risposta 400, che è proprio ciò che
+serve. Il comando stampa codice e tipo: devono essere `400 application/json`.
+
+Nota: PVGIS dà il testo "over the sea" anche per terre emerse fuori dalla sua zona (es.
+Svalbard), quindi l'interfaccia non può distinguerle dal mare. Se il JRC cambia questi testi,
+l'errore diventa `rejected` (messaggio generico): riscaricare i file e aggiornare le frasi.
