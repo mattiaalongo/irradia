@@ -2,10 +2,13 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import type { Tmy } from './engine/pvgisTmy'
 import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult } from './engine/simulate'
 import AnnualTotal from './ui/AnnualTotal'
+import LocationMap from './ui/LocationMap'
 import MonthlyChart from './ui/MonthlyChart'
 import NumberSlider from './ui/NumberSlider'
+import SiteFooter from './ui/SiteFooter'
 import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
 import { cardinalDirection, formatNumber } from './ui/format'
+import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from './ui/mapArea'
 import { useTmy } from './ui/useTmy'
 
 /** Simula l'anno; restituisce un messaggio invece di bloccare la pagina se il motore rifiuta i parametri. */
@@ -59,10 +62,19 @@ export default function App() {
         <section className="params" aria-label="Parametri">
           <fieldset>
             <legend>Posizione</legend>
+            {/* Una sola chiamata: le due coordinate cambiano insieme, quindi un solo download. */}
+            <LocationMap
+              latitude={latitude}
+              longitude={longitude}
+              onChange={(lat, lon) => {
+                setLatitude(lat)
+                setLongitude(lon)
+              }}
+            />
             <NumberSlider label="Latitudine (Nord)" unit="°" value={latitude} onChange={setLatitude}
-              min={34} max={72} step={0.0001} decimals={4} />
+              min={AREA_MIN_LAT} max={AREA_MAX_LAT} step={0.0001} decimals={4} />
             <NumberSlider label="Longitudine (Est)" unit="°" value={longitude} onChange={setLongitude}
-              min={-25} max={45} step={0.0001} decimals={4} />
+              min={AREA_MIN_LON} max={AREA_MAX_LON} step={0.0001} decimals={4} />
           </fieldset>
 
           <fieldset>
@@ -112,6 +124,8 @@ export default function App() {
           )}
         </section>
       </div>
+
+      <SiteFooter />
 
       <StickyTotal state={sticky} />
     </main>
