@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import { test as base, expect, type Route } from '@playwright/test'
 
 // Fixture comuni delle prove nel browser.
@@ -7,7 +8,9 @@ import { test as base, expect, type Route } from '@playwright/test'
 //    src/engine/__fixtures__/ (Roma e Milano). Nessuna prova usa la rete vera.
 // 2. Protezione: ogni richiesta non simulata verso /api/pvgis o verso un host non
 //    locale viene bloccata e fa fallire la prova.
-// 3. Console: console.error ed eccezioni della pagina fanno fallire la prova, salvo
+// 3. Tessere della mappa: `tiles` simula tile.openstreetmap.org con una PNG grigia fissa e conta
+//    le richieste. Ogni altro host esterno resta bloccato (punto 2).
+// 4. Console: console.error ed eccezioni della pagina fanno fallire la prova, salvo
 //    quelle dichiarate esplicitamente con `consoleGuard.allow(...)`.
 
 const FIXTURE_DIR = 'src/engine/__fixtures__'
@@ -92,6 +95,51 @@ export class PvgisMock {
   }
 }
 
+/** CRC-32 dei chunk PNG. */
+function crc32(buf: Buffer): number {
+  let c = ~0
+  for (const byte of buf) {
+    c ^= byte
+    for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1
+  }
+  return ~c >>> 0
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
+  const out = Buffer.alloc(body.length + 8)
+  out.writeUInt32BE(data.length, 0)
+  body.copy(out, 4)
+  out.writeUInt32BE(crc32(body), body.length + 4)
+  return out
+}
+
+/** PNG 256×256 grigio chiaro, generata qui: nessun file binario nel repository. */
+function makeTilePng(): Buffer {
+  const size = 256
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(size, 0)
+  header.writeUInt32BE(size, 4)
+  header.set([8, 2, 0, 0, 0], 8) // 8 bit, RGB, nessuna interlacciatura
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(size * 3, 0xd8)]) // filtro 0 + pixel grigi
+  const raw = Buffer.concat(Array.from({ length: size }, () => row))
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ])
+}
+const TILE_PNG = makeTilePng()
+
+export class TileMock {
+  /** Percorsi delle tessere richieste (es. "/5/17/11.png"). */
+  readonly requests: string[] = []
+  get count(): number {
+    return this.requests.length
+  }
+}
+
 export class ConsoleGuard {
   readonly errors: string[] = []
   private allowed: RegExp[] = []
@@ -104,7 +152,7 @@ export class ConsoleGuard {
   }
 }
 
-export const test = base.extend<{ pvgis: PvgisMock; consoleGuard: ConsoleGuard }>({
+export const test = base.extend<{ pvgis: PvgisMock; tiles: TileMock; consoleGuard: ConsoleGuard }>({
   pvgis: [
     async ({ page }, use) => {
       const mock = new PvgisMock()
@@ -137,6 +185,21 @@ export const test = base.extend<{ pvgis: PvgisMock; consoleGuard: ConsoleGuard }
 
       await use(mock)
       expect(violations, 'richieste di rete non simulate').toEqual([])
+    },
+    { auto: true },
+  ],
+
+  // Dipende da `pvgis` perché la sua regola va registrata DOPO quella che blocca gli host esterni
+  // (le regole registrate dopo hanno la precedenza).
+  tiles: [
+    async ({ page, pvgis }, use) => {
+      void pvgis
+      const mock = new TileMock()
+      await page.route('https://tile.openstreetmap.org/**', async (route) => {
+        mock.requests.push(new URL(route.request().url()).pathname)
+        await route.fulfill({ status: 200, contentType: 'image/png', body: TILE_PNG })
+      })
+      await use(mock)
     },
     { auto: true },
   ],

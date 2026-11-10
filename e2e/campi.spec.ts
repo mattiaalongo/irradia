@@ -177,8 +177,12 @@ test.describe('tastiera', () => {
     // Nel DOM, per ogni parametro lo slider precede il campo di testo.
     const ordine = parametri.flatMap((e) => [slider(page, e), campo(page, e)])
 
-    // Si parte dalla cima della pagina: il primo Tab arriva al primo controllo.
-    await page.locator('body').click({ position: { x: 1, y: 1 } })
+    // La mappa (contenitore, due pulsanti di zoom, link all'attribuzione) precede i campi:
+    // si parte dall'ultimo suo controllo, così il primo Tab arriva al primo parametro.
+    // (La prova della mappa è in mappa.spec.ts.)
+    const attribuzione = page.getByRole('link', { name: 'OpenStreetMap' })
+    await expect(attribuzione).toBeVisible()
+    await attribuzione.focus()
     for (const controllo of ordine) {
       await page.keyboard.press('Tab')
       await expect(controllo).toBeFocused()

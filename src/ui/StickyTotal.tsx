@@ -22,10 +22,12 @@ export default function StickyTotal({ state }: { state: StickyTotalState }) {
     // Download fallito con un risultato precedente: il numero è quello della posizione di prima.
     // L'avviso completo (role="alert") è nei risultati, spesso fuori schermo sul telefono.
     else if (state.failed) label = 'Dati non aggiornati (errore)'
+    // Numero attenuato (colore secondario, contrasto ≥ 4,5:1) come il totale nei risultati
+    // (`.stale`): è il valore della posizione precedente.
     body = (
-      <>
+      <span className={state.updating || state.failed ? 'sticky-old' : undefined}>
         {formatNumber(state.annualKwh)} <span className="sticky-unit">kWh</span>
-      </>
+      </span>
     )
   } else if (state.kind === 'loading') {
     body = <span className="sticky-msg">Scarico i dati da PVGIS…</span>

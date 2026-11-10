@@ -1,0 +1,33 @@
+/*
+ * Stili della mappa che correggono quelli di Leaflet. Importato da MapPicker.tsx DOPO
+ * `leaflet/dist/leaflet.css` (stesso file CSS, stesso ordine) e con i selettori sotto
+ * `.map-picker .map`, che hanno specificità maggiore di quelli di Leaflet: il risultato non
+ * dipende dall'ordine in cui il browser carica i fogli di stile (il CSS della mappa è in un file
+ * differito, caricato dopo index.css). Le variabili di colore (--bg, --fg, ...) vengono da index.css.
+ */
+
+.map-picker .map.leaflet-container { background: #e5e3df; }
+
+/* Marcatore: corpo con l'accento del tema, bordo scuro fisso (le tessere sono sempre chiare). */
+.map-picker .map-pin { background: none; border: 0; }
+.map-picker .map-pin svg { display: block; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35)); }
+.map-picker .map-pin-body { fill: var(--accent); stroke: var(--pin-edge); stroke-width: 1.5; }
+.map-picker .map-pin-dot { fill: var(--pin-edge); }
+
+/* Controlli di Leaflet nei colori del tema (contrasto >= 4,5:1). Le tessere restano chiare. */
+.map-picker .map .leaflet-control-attribution {
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+}
+.map-picker .map .leaflet-control-attribution a { color: var(--link); }
+.map-picker .map .leaflet-bar { border: 1px solid var(--border); box-shadow: none; }
+.map-picker .map .leaflet-bar a,
+.map-picker .map .leaflet-bar a:hover,
+.map-picker .map .leaflet-bar a:focus {
+  background-color: var(--bg);
+  color: var(--fg);
+  border-bottom-color: var(--border);
+}
+.map-picker .map .leaflet-bar a.leaflet-disabled { background-color: var(--bg); color: var(--muted); }
+.map-picker .map .leaflet-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
