@@ -265,6 +265,15 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
    Non vanno provate nel browser: si aprono già pronte, con la CI verde.
    Così le piccole PR di documentazione non riaprono il ciclo (ogni commit annullerebbe gli
    esiti dei tester; corretto l'8/11/2026 dopo la PR #13).
+
+> ⏸️ **Prova locale (L4) SOSPESA** (decisione del PO del 10/11/2026, issue #33), fino a nuovo
+> avviso del PO: costa troppo tempo e utilizzo nella fase di sviluppo attuale. Finché è sospesa,
+> il commento del tester cloud dice sempre `Local L4: not required (suspended by the PO, #33)` e la
+> bozza si toglie con il solo esito OK del tester cloud sull'ultimo commit e la CI verde (punto 4).
+> Se la PR tocca il lettore di PVGIS, la sessione cloud prova i casi cambiati anche con PVGIS vero
+> (curl con `-A irradia-dev-proxy`). Le PR che avrebbero richiesto L4 si annotano nell'issue #33.
+> Le regole qui sotto restano valide e tornano in vigore quando il PO toglie la sospensione.
+
 7. **Quando serve la prova locale (`Local L4: required`)** — decisione del PO dell'8/11/2026,
    issue #17. Si decide in modo meccanico dall'elenco dei file cambiati
    (`git diff --name-only origin/main...HEAD`); nel dubbio, `required`.
