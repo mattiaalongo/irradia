@@ -11,7 +11,7 @@ describe('shadingNote', () => {
 
   it('senza orizzonte: nessuna ombra e nessun effetto spettrale', () => {
     const text = shadingNote(false)
-    expect(text).toBe("Non considera le ombre di montagne, colline, edifici e alberi né l’effetto spettrale (±1 %).")
+    expect(text).toBe("Non considera le ombre di montagne, colline, edifici e alberi né l'effetto spettrale (±1 %).")
     expect(text).not.toContain('Considera le ombre')
   })
 })
