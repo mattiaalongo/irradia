@@ -1,6 +1,6 @@
 /**
  * Testi della sezione richiudibile "Come è calcolata la stima" (issue #26).
- * Testi approvati dal PO l'11/11/2026. Pura: nessun React, i valori calcolati arrivano dal motore.
+ * Testi approvati dal PO l'11/11/2026 (con le correzioni C5 e I4 della rilettura del SWD). Pura: nessun React, i valori calcolati arrivano dal motore.
  *
  * DEVE RESTARE ALLINEATA AL MOTORE. Se cambia il modello (diffusa, riflessione sul vetro,
  * temperatura, rendimento, perdite, albedo, ombre del terreno) o la versione di PVGIS
@@ -19,7 +19,7 @@ export const METHOD_INTRO =
   `Il numero mostrato è l'energia che l'impianto consegna in un anno, dopo le perdite di sistema. ` +
   `Irradia la calcola ora per ora, per tutte le ${formatNumber(TMY_HOURS)} ore di un anno tipo, ` +
   `con gli stessi modelli fisici pubblicati usati da PVGIS 5.3, tranne l'effetto spettrale (vedi sotto). ` +
-  `Il calcolo non usa modelli statistici né intelligenza artificiale: con gli stessi dati e gli stessi ` +
+  `Il calcolo non usa modelli statistici opachi né intelligenza artificiale: con gli stessi dati e gli stessi ` +
   `parametri il risultato è sempre lo stesso.`
 
 export const INCLUDED_LABEL = 'Cosa è compreso'
@@ -35,7 +35,7 @@ export function includedItems(usesHorizon: boolean, yearMin: number, yearMax: nu
     ...(usesHorizon
       ? ['Le ombre di montagne e colline: nelle ore in cui il sole è dietro il profilo del terreno, PVGIS toglie la luce diretta e resta solo quella diffusa.']
       : []),
-    'La luce riflessa via dal vetro dei pannelli, che aumenta quando il sole li colpisce di lato o è basso (modello di Martin e Ruiz).',
+    'La luce riflessa via dal vetro dei pannelli, che aumenta quando il sole colpisce i pannelli di striscio, cioè molto di lato o quasi radente (modello di Martin e Ruiz).',
     'La temperatura dei pannelli, che dipende dal sole, dall\'aria e dal vento (modello di Faiman): più sono caldi, meno producono. Il calcolo considera pannelli ben ventilati, con aria che circola dietro.',
     'Il rendimento dei pannelli al variare della luce e della temperatura, per pannelli in silicio cristallino, i più diffusi (modello di Huld, 2011).',
     `Le perdite di sistema: la percentuale che scegli (PVGIS suggerisce ${formatNumber(DEFAULT_SYSTEM_LOSS_PCT)} %) viene tolta allo stesso modo dalla produzione di ogni ora. Rappresenta in blocco ciò che il calcolo non descrive una per una, come inverter, cavi, sporcizia e piccole differenze tra un pannello e l'altro.`,
