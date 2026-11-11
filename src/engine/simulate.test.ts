@@ -11,14 +11,24 @@ import milanoTmyRaw from './__fixtures__/pvgis-tmy-milano.json'
 import milanoPvcalcRaw from './__fixtures__/pvgis-pvcalc-milano-s35.json'
 import milanoMrcalcRaw from './__fixtures__/pvgis-mrcalc-milano-s35.json'
 import livornoTmyRaw from './__fixtures__/pvgis-tmy-livorno.json'
+import aostaTmyRaw from './__fixtures__/pvgis-tmy-aosta.json'
+import aostaTmyNoHorizonRaw from './__fixtures__/pvgis-tmy-aosta-nohorizon.json'
+import aostaHorizonRaw from './__fixtures__/pvgis-horizon-aosta.json'
+import aostaMrcalcRaw from './__fixtures__/pvgis-mrcalc-aosta-s35.json'
+import aostaMrcalcNoHorizonRaw from './__fixtures__/pvgis-mrcalc-aosta-s35-nohorizon.json'
+import { parsePvgisHorizon } from './__fixtures__/pvgisHorizon'
 import { parsePvgisSeries, type Series } from './__fixtures__/pvgisSeries'
 import { parsePvgisMonthly, type MonthlyRadiation } from './__fixtures__/pvgisMonthly'
 import { parsePvgisTmy, TMY_HOURS, type Tmy } from './pvgisTmy'
 import { simulateHour, simulateYear, type PvSystem } from './simulate'
 import { solarPosition } from './solarPosition'
 
-// Dati reali di PVGIS 5.3 (banche dati PVGIS-SARAH3 ed ERA5), senza ombre dell'orizzonte
-// (usehorizon=0): origine, comandi e hash in __fixtures__/README.md. Strumenti usati:
+// Dati reali di PVGIS 5.3 (banche dati PVGIS-SARAH3 ed ERA5): origine, comandi e hash in
+// __fixtures__/README.md. Serie orarie, MRcalc e PVcalc di Roma e Milano sono senza ombre
+// dell'orizzonte (usehorizon=0); gli anni tipo invece le hanno (valore predefinito di PVGIS, lo
+// stesso che l'app chiede con usehorizon=1). A Milano non cambia nulla; a Roma l'orizzonte toglie
+// la diretta in 66 ore al tramonto: −0,07 % a Sud 35°, uno scarto noto e molto dentro le
+// tolleranze qui sotto (issue #25). Aosta, in fondo, ha i dati con e senza orizzonte. Strumenti usati:
 // - seriescalc (anno 2020 ora per ora): isola ogni formula del modello;
 // - tmy (anno tipo): è ciò che l'app scarica e simula;
 // - MRcalc (irradiazione di ogni mese 2005-2023): il mese REALE da cui viene ogni mese del TMY;
@@ -333,6 +343,187 @@ describe('non regressione: Livorno, 1 kWp, Sud 35°, perdite 0', () => {
     expect(livornoTmy.windSpeedClamped).toHaveLength(2)
     const y = simulateYear(livornoTmy, { ...oneKwp(35, 180), systemLossPct: 0 })
     expect(Math.abs(y.annualKwh - 1669.197)).toBeLessThan(0.01)
+  })
+})
+
+/*
+ * Orizzonte del terreno (issue #25), Aosta centro (45,737 N 7,3201 E): fra le città provate è
+ * quella in cui le montagne tolgono più luce diretta. L'ombra non la calcoliamo noi: la applica
+ * PVGIS nell'anno tipo (`usehorizon=1`), azzerando la DNI quando il sole è dietro il profilo del
+ * terreno. Qui si verifica che quei dati siano ciò che crediamo, con tre prove indipendenti:
+ *   1. i due anni tipo (con e senza orizzonte) differiscono solo dove devono;
+ *   2. le ore in ombra sono esattamente quelle col sole sotto il profilo `printhorizon`;
+ *   3. la luce persa sul piano Sud 35° è quella che MRcalc dà per gli stessi mesi reali.
+ * Misure del 10/11/2026 (tech-lead) e dell'11/11/2026 (SWD), uguali; Bolzano e Sondrio, misurati
+ * una volta sola, nel README dei fixture.
+ *
+ * SE QUESTI TEST FALLISCONO DOPO AVER RISCARICATO I FIXTURE, il motore può non avere colpe: il JRC
+ * può aver cambiato il modello del terreno (DEM), il profilo dell'orizzonte o l'algoritmo con cui
+ * PVGIS calcola la posizione del sole. Vanno rimisurati i valori qui sotto.
+ */
+describe('orizzonte del terreno (Aosta, issue #25)', () => {
+  const RELOAD_HINT =
+    ' — se succede dopo aver riscaricato i fixture, PVGIS può aver cambiato il DEM, il profilo ' +
+    "dell'orizzonte o l'algoritmo della posizione del sole (vedi __fixtures__/README.md)"
+  const withHorizon = parsePvgisTmy(aostaTmyRaw)
+  const noHorizon = parsePvgisTmy(aostaTmyNoHorizonRaw)
+  const profile = parsePvgisHorizon(aostaHorizonRaw)
+  const mrcalcWith = parsePvgisMonthly(aostaMrcalcRaw)
+  const mrcalcWithout = parsePvgisMonthly(aostaMrcalcNoHorizonRaw)
+  const s35 = { ...oneKwp(35, 180), systemLossPct: 0 }
+
+  /** Ore in cui GHI o DNI cambiano fra i due anni tipo. */
+  const changed = withHorizon.hours.flatMap((h, i) => {
+    const o = noHorizon.hours[i]
+    return h.ghiWm2 !== o.ghiWm2 || h.dniWm2 !== o.dniWm2 ? [i] : []
+  })
+
+  it('i file sono quelli attesi: stesso punto, uno con e uno senza orizzonte', () => {
+    expect(withHorizon.usesHorizon).toBe(true)
+    expect(noHorizon.usesHorizon).toBe(false)
+    expect(mrcalcWith.usesHorizon).toBe(true)
+    expect(mrcalcWithout.usesHorizon).toBe(false)
+    for (const x of [withHorizon, noHorizon, mrcalcWith, mrcalcWithout, profile]) {
+      expect(x.latitude).toBe(45.737)
+      expect(x.longitude).toBe(7.3201)
+    }
+    expect([mrcalcWith.tiltDeg, mrcalcWith.azimuthDeg, mrcalcWithout.tiltDeg, mrcalcWithout.azimuthDeg]).toEqual([35, 180, 35, 180])
+  })
+
+  // Prova 1. Misurato: 531 ore, e in tutte la DNI con orizzonte è esattamente 0 (PVGIS non dà
+  // ombre parziali). Nessuna tolleranza: sono dati di PVGIS confrontati con dati di PVGIS.
+  it('stessi mesi e istanti; cambiano solo GHI e DNI, in 531 ore, e lì DNI = 0 e GHI = DHI', () => {
+    expect(withHorizon.monthsSelected).toEqual(noHorizon.monthsSelected)
+    expect(withHorizon.irradianceTimeOffsetH).toBe(noHorizon.irradianceTimeOffsetH)
+    withHorizon.hours.forEach((h, i) => {
+      const o = noHorizon.hours[i]
+      expect(h.time).toEqual(o.time)
+      expect([h.airTemperatureC, h.windSpeedMs, h.dhiWm2]).toEqual([o.airTemperatureC, o.windSpeedMs, o.dhiWm2])
+    })
+    // Anche le colonne che il lettore non usa (umidità, infrarosso, direzione del vento, pressione).
+    const rows1 = aostaTmyRaw.outputs.tmy_hourly as Record<string, unknown>[]
+    const rows0 = aostaTmyNoHorizonRaw.outputs.tmy_hourly as Record<string, unknown>[]
+    const withoutGhiDni = (r: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'G(h)' && k !== 'Gb(n)'))
+    rows1.forEach((r, i) => expect(withoutGhiDni(r)).toEqual(withoutGhiDni(rows0[i])))
+    expect(changed.length, `ore cambiate dall'orizzonte${RELOAD_HINT}`).toBe(531)
+    for (const i of changed) {
+      const h = withHorizon.hours[i]
+      expect(noHorizon.hours[i].dniWm2).toBeGreaterThan(0)
+      expect(h.dniWm2).toBe(0)
+      expect(h.ghiWm2).toBe(h.dhiWm2)
+    }
+  })
+
+  // Tolleranza 0,25° attorno al profilo. Il profilo di PVGIS è arrotondato a 0,1° (±0,05°) e la
+  // nostra posizione del sole (NOAA, verificata entro 0,01° in solarPosition.test.ts) differisce
+  // da quella di PVGIS (fino a 0,4° col sole alto, misurato l'8/11/2026 su `H_sun`; qui, vicino
+  // all'orizzonte, le ore classificate male sono a ≤ 0,107° dal profilo): 0,05 + 0,11 ≈ 0,16°,
+  // margine circa 1,5-2×. La rifrazione (0,06-0,13° fra 7° e 15° di altezza) sta dentro: con
+  // l'elevazione apparente il risultato è lo stesso (misurato l'11/11/2026).
+  const PROFILE_TOLERANCE_DEG = 0.25
+
+  /**
+   * Prova 2. Per ogni ora con diretta nell'anno tipo senza orizzonte: posizione del sole (NOAA,
+   * `solarPosition`) all'istante delle irradianze (`time` + ritardo di PVGIS), elevazione
+   * GEOMETRICA, contro l'altezza del profilo nella stessa direzione, interpolata linearmente.
+   * Un'ora è "classificata male" se l'ombra di PVGIS (DNI = 0) non coincide con "sole sotto il
+   * profilo". I parametri servono a mostrare che la prova si accorge degli errori.
+   */
+  function classify(offsetH: number, heightAt: (azimuthDeg: number) => number) {
+    const offsetMs = offsetH * 3_600_000
+    const wrongPerDay = new Map<string, number>()
+    let considered = 0
+    let maxWrongDeg = 0
+    let wrongFarFromProfile = 0
+    noHorizon.hours.forEach((o, i) => {
+      if (!(o.dniWm2 > 0)) return
+      considered++
+      const sun = solarPosition(new Date(o.time.getTime() + offsetMs), withHorizon.latitude, withHorizon.longitude)
+      const marginDeg = sun.elevation - heightAt(sun.azimuth)
+      const shadedByPvgis = withHorizon.hours[i].dniWm2 === 0
+      if (marginDeg < 0 !== shadedByPvgis) {
+        const day = o.time.toISOString().slice(0, 10)
+        wrongPerDay.set(day, (wrongPerDay.get(day) ?? 0) + 1)
+        maxWrongDeg = Math.max(maxWrongDeg, Math.abs(marginDeg))
+        if (Math.abs(marginDeg) > PROFILE_TOLERANCE_DEG) wrongFarFromProfile++
+      }
+    })
+    const wrong = [...wrongPerDay.values()]
+    return { considered, wrong: sum(wrong), maxPerDay: Math.max(0, ...wrong), maxWrongDeg, wrongFarFromProfile }
+  }
+
+
+  // Misurato l'11/11/2026: 3534 ore considerate, 5 classificate male (5 giorni diversi, 1 per
+  // giorno), al più 0,107° dal profilo. Ore di confine: il sole passa dietro la cresta durante
+  // l'ora e i due calcoli del sole la mettono da parti opposte.
+  it('le ore in ombra sono quelle col sole sotto il profilo dell\'orizzonte (± 0,25°, ≤ 1 ora di confine al giorno)', () => {
+    const r = classify(withHorizon.irradianceTimeOffsetH, profile.heightAt)
+    expect(r.considered).toBe(3534)
+    expect(r.wrongFarFromProfile, `ore classificate male a più di ${PROFILE_TOLERANCE_DEG}° dal profilo${RELOAD_HINT}`).toBe(0)
+    expect(r.maxPerDay, `ore di confine nello stesso giorno${RELOAD_HINT}`).toBeLessThanOrEqual(1)
+  })
+
+  // La prova si accorge degli errori che dovrebbe fermare (misurato l'11/11/2026, ore classificate
+  // male a più di 0,25° dal profilo): senza il ritardo di ~10 minuti 84; col gradino di 7,5° più
+  // vicino invece dell'interpolazione 12; con Est e Ovest scambiati (azimut 360 − A) 595.
+  it('si accorge di un ritardo dimenticato, di un profilo a gradini e di Est/Ovest scambiati', () => {
+    const { points, stepDeg } = profile
+    const nearestStep = (az: number) => points[Math.round((((az % 360) + 360) % 360) / stepDeg) % points.length].heightDeg
+    expect(classify(0, profile.heightAt).wrongFarFromProfile).toBeGreaterThan(50)
+    expect(classify(withHorizon.irradianceTimeOffsetH, nearestStep).wrongFarFromProfile).toBeGreaterThan(5)
+    expect(classify(withHorizon.irradianceTimeOffsetH, (az) => profile.heightAt(360 - az)).wrongFarFromProfile).toBeGreaterThan(100)
+  })
+
+  /**
+   * Prova 3. Luce sul piano Sud 35° (nostra trasposizione, `simulateHour`), mese per mese, con e
+   * senza orizzonte: il rapporto deve essere quello di MRcalc (con e senza orizzonte) per lo
+   * STESSO mese reale da cui viene ogni mese dell'anno tipo. Così la "fortuna" dell'anno tipo
+   * non entra nel confronto (come nella validazione con MRcalc sopra, issue #10) e si verifica
+   * anche che la nostra diffusa reagisca all'ombra come quella di PVGIS (con DNI = 0 il modello
+   * di Muneer tratta l'ora come cielo coperto; PVGIS fa lo stesso).
+   */
+  const offsetMs = withHorizon.irradianceTimeOffsetH * 3_600_000
+  const monthlyPoa = (t: Tmy) => {
+    const months = new Array<number>(12).fill(0)
+    for (const h of t.hours) {
+      const r = simulateHour({ ...h, time: new Date(h.time.getTime() + offsetMs) }, t.latitude, t.longitude, s35)
+      months[h.time.getUTCMonth()] += r.poaGlobalWm2 / 1000
+    }
+    return months
+  }
+  const poaWith = monthlyPoa(withHorizon)
+  const poaWithout = monthlyPoa(noHorizon)
+  const sourceMonths = withHorizon.monthsSelected.slice().sort((a, b) => a.month - b.month)
+  const mrWith = sourceMonths.map((s) => mrcalcWith.get(s.year, s.month).inclinedKwhM2)
+  const mrWithout = sourceMonths.map((s) => mrcalcWithout.get(s.year, s.month).inclinedKwhM2)
+
+  // Misurato l'11/11/2026: scarto peggiore +0,26 % (gennaio 2008: noi −27,82 %, MRcalc
+  // −28,01 %), poi −0,18 % (dicembre 2016); da aprile a settembre l'ombra è quasi nulla e lo
+  // scarto ≤ 0,08 %. Tolleranza ±0,5 %: circa 2× il massimo, e i rapporti sono molto più
+  // precisi delle irradiazioni assolute (±1 % sopra) perché gli errori comuni si semplificano.
+  it('rapporto con/senza orizzonte di ogni mese entro ±0,5 % di MRcalc sullo stesso mese reale', () => {
+    sourceMonths.forEach((s, i) => {
+      const d = relDiff(poaWith[i] / poaWithout[i], mrWith[i] / mrWithout[i])
+      expect(Math.abs(d), `mese ${s.month}/${s.year}: scarto ${(d * 100).toFixed(3)} %${RELOAD_HINT}`).toBeLessThan(0.005)
+    })
+  })
+
+  // Misurato l'11/11/2026: luce persa nell'anno 103,09 kWh/m² (noi) contro 102,82 (MRcalc),
+  // −5,938 % contro −5,924 %, scarto dei rapporti −0,015 %. Tolleranza ±0,1 %: gli scarti dei
+  // mesi invernali si compensano; un errore sistematico (es. ombra applicata un'ora fuori posto)
+  // la supererebbe.
+  it('rapporto con/senza orizzonte dei 12 mesi entro ±0,1 % di MRcalc', () => {
+    const d = relDiff(sum(poaWith) / sum(poaWithout), sum(mrWith) / sum(mrWithout))
+    expect(Math.abs(d), `scarto annuo ${(d * 100).toFixed(4)} %${RELOAD_HINT}`).toBeLessThan(0.001)
+  })
+
+  // Non regressione: 1 kWp, Sud 35°, perdite 0, anno tipo con orizzonte. Valore calcolato
+  // l'11/11/2026 con questo motore (1524,2898 kWh; senza orizzonte 1629,3530, −6,45 %): NON è un
+  // riferimento esterno, serve ad accorgersi se il calcolo cambia. Tolleranza ±0,01 kWh come
+  // Livorno: il calcolo è deterministico, resta margine solo per la virgola mobile.
+  it('non regressione: 1524,290 ± 0,01 kWh l\'anno (1 kWp, Sud 35°, perdite 0)', () => {
+    expect(Math.abs(simulateYear(withHorizon, s35).annualKwh - 1524.29)).toBeLessThan(0.01)
   })
 })
 

@@ -7,9 +7,15 @@
  *   → perdite per riflessione sul vetro → temperatura del modulo → potenza DC (Huld)
  *   → perdite di sistema (inverter, cavi, sporcizia, …) → potenza AC.
  *
+ * Ombre del terreno (montagne, colline): COMPRESE, ma non le calcoliamo qui. Le applica PVGIS
+ * nell'anno tipo che scarichiamo (`usehorizon=1` in `pvgisTmyUrl`, `Tmy.usesHorizon`): nelle ore
+ * in cui il sole è dietro il profilo del terreno la DNI vale 0 e resta solo la diffusa. Validato
+ * su Aosta contro il profilo `printhorizon` e MRcalc con e senza orizzonte (simulate.test.ts,
+ * issue #25).
+ *
  * Differenze note rispetto a PVGIS 5.3 (spiegate in README e CLAUDE.md):
  * - nessuna correzione spettrale (PVGIS: circa ±1 % in Italia);
- * - nessuna ombra dell'orizzonte (montagne, edifici).
+ * - nessuna ombra di ostacoli vicini (edifici, alberi): PVGIS non le conosce e noi neppure.
  */
 
 import { DEFAULT_ALBEDO, extraterrestrialIrradiance, planeOfArrayIrradiance } from './irradiance'
