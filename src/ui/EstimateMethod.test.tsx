@@ -40,4 +40,11 @@ describe('EstimateMethod', () => {
       expect(html).not.toContain('<h3')
     }
   })
+
+  it('anni a 4 cifre senza separatore delle migliaia, anche con yearMin = yearMax', () => {
+    const html = renderToStaticMarkup(<EstimateMethod usesHorizon={false} yearMin={2005} yearMax={2005} />)
+    expect(html).toContain('tra il 2005 e il 2005')
+    expect(html).not.toMatch(/2\.005/)
+    expect(html).toContain('8.760')
+  })
 })
