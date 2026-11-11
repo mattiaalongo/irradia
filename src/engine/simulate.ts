@@ -16,6 +16,12 @@
  * Differenze note rispetto a PVGIS 5.3 (spiegate in README e CLAUDE.md):
  * - nessuna correzione spettrale (PVGIS: circa ±1 % in Italia);
  * - nessuna ombra di ostacoli vicini (edifici, alberi): PVGIS non le conosce e noi neppure.
+ *
+ * Se cambi un modello della catena di calcolo (posizione del sole, diffusa, riflessa e albedo,
+ * riflessione sul vetro, temperatura, rendimento, perdite di sistema, ombre del terreno) o la
+ * versione di PVGIS, aggiorna anche i testi per l'utente in `src/ui/methodNote.ts` (sezione
+ * "Come è calcolata la stima", issue #26) e la nota `ANNUAL_NOTE` (`src/ui/AnnualTotal.tsx`).
+ * È solo un promemoria: il motore non importa nulla dall'interfaccia.
  */
 
 import { DEFAULT_ALBEDO, extraterrestrialIrradiance, planeOfArrayIrradiance } from './irradiance'

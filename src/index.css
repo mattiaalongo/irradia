@@ -151,6 +151,14 @@ input[aria-invalid='true'] { border-color: var(--error); }
 .chart-table th { text-align: left; font-weight: 400; color: var(--muted); }
 .chart-table td { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* "Come è calcolata la stima": stesso stile del sommario della tabella e della nota delle fonti. */
+.method { margin-top: 16px; font-size: 14px; color: var(--muted); }
+.method summary { cursor: pointer; }
+.method-body { max-width: 70ch; font-size: 13px; line-height: 1.45; }
+.method-body p { margin: 8px 0 0; }
+.method-body ul { margin: 4px 0 0; padding-left: 20px; }
+.method-body li { margin-top: 4px; }
+
 /* Barra del totale annuo: solo su telefono. Resta in basso mentre si muovono gli slider.
    Sfondo pieno (non trasparente): i colori --fg/--muted/--error hanno così lo stesso contrasto
    del resto della pagina in entrambi i temi. */
