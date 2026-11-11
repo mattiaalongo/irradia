@@ -12,7 +12,7 @@ test('Roma all\'avvio mostra il totale annuo e il grafico', async ({ page, pvgis
   await expect(totale(page)).toContainText('Impianto da 4,30 kWp (10 × 430 Wp)')
   await expect(page.getByRole('img', { name: /^Gennaio: .* kWh$/ })).toBeVisible()
   expect(pvgis.count).toBe(1)
-  expect(pvgis.requests[0].url).toBe('/api/pvgis/v5_3/tmy?lat=41.9028&lon=12.4964&outputformat=json')
+  expect(pvgis.requests[0].url).toBe('/api/pvgis/v5_3/tmy?lat=41.9028&lon=12.4964&usehorizon=1&outputformat=json')
 })
 
 test.describe('Milano, 20 × 430 Wp, 35°, Sud, perdite 0', () => {

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import raw from './__fixtures__/pvgis-tmy-roma.json'
 import livornoRaw from './__fixtures__/pvgis-tmy-livorno.json'
 import milanoRaw from './__fixtures__/pvgis-tmy-milano.json'
+import aostaRaw from './__fixtures__/pvgis-tmy-aosta.json'
+import aostaNoHorizonRaw from './__fixtures__/pvgis-tmy-aosta-nohorizon.json'
 import seaErrorRaw from './__fixtures__/pvgis-error-sea.json'
 import coverageErrorRaw from './__fixtures__/pvgis-error-coverage.json'
 import { fetchPvgisTmy, parsePvgisTmy, PvgisError, pvgisTmyUrl, TMY_HOURS, type Tmy } from './pvgisTmy'
@@ -30,6 +32,7 @@ describe('parsePvgisTmy — lettura del file PVGIS di Roma', () => {
     expect(tmy.meteoDb).toBe('ERA5')
     expect(tmy.yearMin).toBe(2005)
     expect(tmy.yearMax).toBe(2023)
+    expect(tmy.usesHorizon).toBe(true)
   })
 
   it('riporta i mesi scelti da PVGIS', () => {
@@ -306,16 +309,57 @@ describe('parsePvgisTmy — vento negativo vicino ai cambi di mese (issue #28)',
   })
 })
 
+describe('parsePvgisTmy — ombre del terreno (use_horizon), issue #25', () => {
+  // Valori di `inputs.meteo_data.use_horizon` nelle risposte reali di PVGIS salvate nei fixture
+  // (scaricate con `usehorizon=1` o senza parametro, cioè con il valore predefinito 1, e per
+  // Aosta anche con `usehorizon=0`): vedi __fixtures__/README.md.
+  it.each([
+    ['Roma', raw, true],
+    ['Milano', milanoRaw, true],
+    ['Livorno', livornoRaw, true],
+    ['Aosta, usehorizon=1', aostaRaw, true],
+    ['Aosta, usehorizon=0', aostaNoHorizonRaw, false],
+  ])('%s → usesHorizon = %s', (_name, json, expected) => {
+    expect(parsePvgisTmy(json).usesHorizon).toBe(expected)
+  })
+
+  it.each([
+    ['manca', undefined],
+    ['testo "true"', 'true'],
+    ['numero 1', 1],
+    ['null', null],
+  ])('use_horizon %s → invalidData', (_name, value) => {
+    const j = rawCopy()
+    if (value === undefined) delete j.inputs.meteo_data.use_horizon
+    else j.inputs.meteo_data.use_horizon = value
+    let err: unknown
+    try {
+      parsePvgisTmy(j)
+    } catch (e) {
+      err = e
+    }
+    expect(err).toBeInstanceOf(PvgisError)
+    expect((err as PvgisError).kind).toBe('invalidData')
+    expect((err as PvgisError).message).toMatch(/inputs\.meteo_data\.use_horizon/)
+  })
+})
+
 describe('pvgisTmyUrl', () => {
   it('costruisce l\'indirizzo della versione 5.3', () => {
     expect(pvgisTmyUrl('/api/pvgis', 41.9028, 12.4964)).toBe(
-      '/api/pvgis/v5_3/tmy?lat=41.9028&lon=12.4964&outputformat=json',
+      '/api/pvgis/v5_3/tmy?lat=41.9028&lon=12.4964&usehorizon=1&outputformat=json',
     )
+  })
+
+  it('chiede esplicitamente le ombre del terreno (usehorizon=1), dopo lat e lon', () => {
+    const url = new URL(pvgisTmyUrl('https://re.jrc.ec.europa.eu/api', 45.737, 7.3201))
+    expect(url.searchParams.get('usehorizon')).toBe('1')
+    expect([...url.searchParams.keys()]).toEqual(['lat', 'lon', 'usehorizon', 'outputformat'])
   })
 
   it('ignora la "/" finale dell\'indirizzo di base', () => {
     expect(pvgisTmyUrl('https://re.jrc.ec.europa.eu/api/', 0, 0)).toBe(
-      'https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=0&lon=0&outputformat=json',
+      'https://re.jrc.ec.europa.eu/api/v5_3/tmy?lat=0&lon=0&usehorizon=1&outputformat=json',
     )
   })
 
@@ -340,7 +384,7 @@ describe('fetchPvgisTmy — con una finta fetch (nessuna rete)', () => {
   it('scarica e converte la risposta', async () => {
     const f = fakeFetch(async () => Response.json(raw))
     const result = await fetchPvgisTmy(41.9028, 12.4964, { baseUrl: '/api/pvgis', fetch: f.fn })
-    expect(f.calls).toEqual(['/api/pvgis/v5_3/tmy?lat=41.9028&lon=12.4964&outputformat=json'])
+    expect(f.calls).toEqual(['/api/pvgis/v5_3/tmy?lat=41.9028&lon=12.4964&usehorizon=1&outputformat=json'])
     expect(result).toEqual(tmy)
   })
 
