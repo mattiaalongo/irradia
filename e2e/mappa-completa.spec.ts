@@ -625,7 +625,7 @@ test.describe('sicurezza', () => {
     expect(html).not.toContain('onerror')
     expect(html).not.toContain('<script')
     // nessuna richiesta PVGIS con testo dell'utente nell'URL
-    for (const r of pvgis.requests) expect(r.url).toMatch(/^\/api\/pvgis\/v5_3\/tmy\?lat=[-\d.]+&lon=[-\d.]+&outputformat=json$/)
+    for (const r of pvgis.requests) expect(r.url).toMatch(/^\/api\/pvgis\/v5_3\/tmy\?lat=[-\d.]+&lon=[-\d.]+&usehorizon=1&outputformat=json$/)
   })
 })
 

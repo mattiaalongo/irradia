@@ -10,6 +10,7 @@ import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
 import { describeTmyError } from './ui/errorMessage'
 import { cardinalDirection, formatNumber } from './ui/format'
 import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from './ui/mapArea'
+import { shadingNote } from './ui/sourceNote'
 import { useTmy } from './ui/useTmy'
 
 /** Simula l'anno; restituisce un messaggio invece di bloccare la pagina se il motore rifiuta i parametri. */
@@ -123,7 +124,7 @@ export default function App() {
                 Dati: anno meteorologico tipo PVGIS (JRC, Commissione Europea), {tmy.radiationDb} e {tmy.meteoDb},
                 mesi scelti tra il {tmy.yearMin} e il {tmy.yearMax}; punto {formatNumber(tmy.latitude, 4)}° N,{' '}
                 {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.
-                Non sono considerate le ombre dell'orizzonte né l'effetto spettrale (±1 %).
+                {shadingNote(tmy.usesHorizon)}
               </p>
             </div>
           )}

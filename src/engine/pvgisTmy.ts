@@ -51,6 +51,16 @@ export interface Tmy {
   radiationDb: string
   /** Banca dati delle altre grandezze meteo (es. "ERA5"). */
   meteoDb: string
+  /**
+   * Vero se PVGIS ha tolto la luce diretta nelle ore in cui il sole è dietro il profilo del
+   * terreno (montagne, colline) attorno al punto, calcolato da PVGIS su un modello digitale
+   * del terreno (`inputs.meteo_data.horizon_db`: "DEM-calculated"). PVGIS: `use_horizon`.
+   * Lo chiediamo sempre (`usehorizon=1` in `pvgisTmyUrl`): un `false` vorrebbe dire che PVGIS
+   * ha ignorato la richiesta. Il calcolo prosegue comunque; l'interfaccia ne tiene conto nella
+   * nota sotto i risultati (decisione del PO dell'11/11/2026, issue #25).
+   * Le ombre di ostacoli vicini (edifici, alberi) non sono mai comprese.
+   */
+  usesHorizon: boolean
   /** Primo e ultimo anno tra cui PVGIS ha scelto i mesi tipo. */
   yearMin: number
   yearMax: number
@@ -221,6 +231,12 @@ function num(parent: Obj, key: string, path: string): number {
   return v
 }
 
+function bool(parent: Obj, key: string, path: string): boolean {
+  const v = parent[key]
+  if (typeof v !== 'boolean') throw invalidData(`Risposta PVGIS non valida: "${path}" non è un valore vero/falso`)
+  return v
+}
+
 function str(parent: Obj, key: string, path: string): string {
   const v = parent[key]
   if (typeof v !== 'string') throw invalidData(`Risposta PVGIS non valida: "${path}" non è un testo`)
@@ -347,6 +363,7 @@ export function parsePvgisTmy(json: unknown): Tmy {
     irradianceTimeOffsetH: num(location, 'irradiance_time_offset', 'inputs.location.irradiance_time_offset'),
     radiationDb: str(meteo, 'radiation_db', 'inputs.meteo_data.radiation_db'),
     meteoDb: str(meteo, 'meteo_db', 'inputs.meteo_data.meteo_db'),
+    usesHorizon: bool(meteo, 'use_horizon', 'inputs.meteo_data.use_horizon'),
     yearMin: num(meteo, 'year_min', 'inputs.meteo_data.year_min'),
     yearMax: num(meteo, 'year_max', 'inputs.meteo_data.year_max'),
     monthsSelected,
@@ -368,13 +385,29 @@ export interface FetchPvgisTmyOptions {
   signal?: AbortSignal
 }
 
-/** Costruisce l'indirizzo della richiesta TMY. Esportata per poterla verificare nei test. */
+/**
+ * Costruisce l'indirizzo della richiesta TMY. Esportata per poterla verificare nei test.
+ *
+ * `usehorizon=1`: chiediamo ESPLICITAMENTE le ombre del terreno. Fonte: JRC, "PVGIS API —
+ * non-interactive service" (indirizzo in testa al file), parametro `usehorizon` ("Calculate
+ * taking into account shadows from high horizon. Value of 1 for 'yes'"); senza parametro
+ * PVGIS usa già 1 come valore predefinito. Misurato il 10/11/2026 (issue #25):
+ * - con `usehorizon=1` la risposta è identica byte per byte a quella senza parametro (stesso
+ *   SHA-256 per Roma, Milano, Livorno e Aosta): cambia solo che la scelta è scritta qui;
+ * - con l'orizzonte PVGIS porta la DNI a 0 nelle ore in cui il sole è dietro il profilo del
+ *   terreno (Aosta: 531 ore, DNI −12,6 %, energia a Sud 35° −6,5 %; Roma: 66 ore al
+ *   tramonto, −0,07 %; Milano e Livorno: nessuna ora);
+ * - le ombre di ostacoli vicini (edifici, alberi) non ci sono comunque.
+ * Ordine dei parametri: lat, lon, usehorizon, outputformat (lo stesso dei comandi nel README
+ * dei fixture).
+ */
 export function pvgisTmyUrl(baseUrl: string, latitude: number, longitude: number): string {
   if (!(latitude >= -90 && latitude <= 90)) throw new RangeError('Latitudine fuori da [-90, 90]')
   if (!(longitude >= -180 && longitude <= 180)) throw new RangeError('Longitudine fuori da [-180, 180]')
   const params = new URLSearchParams({
     lat: String(latitude),
     lon: String(longitude),
+    usehorizon: '1',
     outputformat: 'json',
   })
   return `${baseUrl.replace(/\/+$/, '')}/${PVGIS_API_VERSION}/tmy?${params}`
