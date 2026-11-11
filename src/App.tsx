@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import type { Tmy } from './engine/pvgisTmy'
 import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult } from './engine/simulate'
 import AnnualTotal from './ui/AnnualTotal'
+import EstimateMethod from './ui/EstimateMethod'
 import LocationMap from './ui/LocationMap'
 import MonthlyChart from './ui/MonthlyChart'
 import NumberSlider from './ui/NumberSlider'
@@ -92,7 +93,7 @@ export default function App() {
             <NumberSlider label="Potenza di un pannello" unit="Wp" value={panelPowerWp} onChange={setPanelPowerWp}
               min={100} max={700} step={5} />
             <NumberSlider label="Perdite di sistema" unit="%" value={systemLossPct} onChange={setSystemLossPct}
-              min={0} max={30} step={0.5} decimals={1} hint={() => 'Inverter, cavi, sporcizia… PVGIS suggerisce 14 %'} />
+              min={0} max={30} step={0.5} decimals={1} hint={() => `Inverter, cavi, sporcizia… PVGIS suggerisce ${DEFAULT_SYSTEM_LOSS_PCT} %`} />
           </fieldset>
         </section>
 
@@ -126,6 +127,8 @@ export default function App() {
                 {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.
                 {shadingNote(tmy.usesHorizon)}
               </p>
+
+              <EstimateMethod usesHorizon={tmy.usesHorizon} yearMin={tmy.yearMin} yearMax={tmy.yearMax} />
             </div>
           )}
         </section>
