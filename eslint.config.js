@@ -31,8 +31,8 @@ export default tseslint.config(
     },
   },
   {
-    // Prove del browser e configurazione di Playwright: girano in Node.
-    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    // Prove del browser, configurazione di Playwright e script di controllo: girano in Node.
+    files: ['e2e/**/*.ts', 'playwright.config.ts', 'scripts/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 )

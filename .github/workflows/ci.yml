@@ -65,6 +65,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Misura il JS caricato all'avvio (gzip) e fallisce se supera il limite
+      # fissato in scripts/check-bundle-size.ts (issue #37). Non serve nessun
+      # permesso in più: il riepilogo va nel file di GITHUB_STEP_SUMMARY.
+      - name: Dimensione del JS iniziale
+        run: npm run size
+
   # Prove nel browser vero (Chromium) contro la build di produzione. In parallelo
   # al job dei test: non dipende da esso, così i tempi non si sommano.
   e2e:
