@@ -10,6 +10,8 @@
 
 import { Suspense, lazy, useId, useState, useSyncExternalStore } from 'react'
 import type { MapPickerProps } from './MapPicker'
+import ErrorBoundary, { ReloadFallback } from './ErrorBoundary'
+import { MAP_ERROR_TEXT } from './errorBoundaryText'
 
 const MapPicker = lazy(() => import('./MapPicker'))
 
@@ -50,9 +52,12 @@ export default function LocationMap(props: MapPickerProps) {
       )}
       <div id={panelId} className="map-panel" hidden={!shown}>
         {mounted && (
-          <Suspense fallback={<div className="map map-loading" role="status">Carico la mappa…</div>}>
-            <MapPicker {...props} />
-          </Suspense>
+          // Se il file della mappa non si carica, il messaggio occupa lo stesso riquadro (issue #38).
+          <ErrorBoundary fallback={<ReloadFallback className="map map-error" text={MAP_ERROR_TEXT} />}>
+            <Suspense fallback={<div className="map map-loading" role="status">Carico la mappa…</div>}>
+              <MapPicker {...props} />
+            </Suspense>
+          </ErrorBoundary>
         )}
       </div>
     </div>
