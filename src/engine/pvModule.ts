@@ -131,7 +131,12 @@ export function huldRelativeEfficiency(
   k: HuldCoefficients = HULD_CSI_PVGIS5,
 ): number {
   if (!(effectiveIrradianceWm2 > 0)) return 0
-  const lnG = Math.log(effectiveIrradianceWm2 / STC_IRRADIANCE_WM2)
+  // ln G′. Con G denormale (es. 5e-324) la divisione G/1000 va a 0 per underflow e ln 0 = −∞, che
+  // con T′ = 0 darebbe 0 × ∞ = NaN (issue #19). Solo in quel caso usiamo ln G − ln 1000, identità
+  // dei logaritmi: è finito (≈ −748) e la formula dà un valore che Math.max porta a 0. Per tutte le
+  // irradianze per cui G/1000 > 0 il calcolo resta quello di prima, identico bit per bit.
+  const ratio = effectiveIrradianceWm2 / STC_IRRADIANCE_WM2
+  const lnG = ratio > 0 ? Math.log(ratio) : Math.log(effectiveIrradianceWm2) - Math.log(STC_IRRADIANCE_WM2)
   const t = moduleTemperatureC - STC_TEMPERATURE_C
   const eta = 1 + k[0] * lnG + k[1] * lnG ** 2 + t * (k[2] + k[3] * lnG + k[4] * lnG ** 2) + k[5] * t ** 2
   return Math.max(0, eta)
@@ -148,7 +153,9 @@ export function huldDcPower(
   moduleTemperatureC: number,
   k: HuldCoefficients = HULD_CSI_PVGIS5,
 ): number {
-  if (!(peakPowerW >= 0)) throw new RangeError('Potenza nominale deve essere ≥ 0')
+  if (!(peakPowerW >= 0 && Number.isFinite(peakPowerW))) {
+    throw new RangeError('Potenza nominale deve essere finita e ≥ 0')
+  }
   return (
     peakPowerW *
     (Math.max(0, effectiveIrradianceWm2) / STC_IRRADIANCE_WM2) *

@@ -1,6 +1,12 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { faimanModuleTemperature, huldDcPower, huldRelativeEfficiency, martinRuizBeamFactor } from './pvModule'
+import {
+  faimanModuleTemperature,
+  HULD_CSI_PVGIS5,
+  huldDcPower,
+  huldRelativeEfficiency,
+  martinRuizBeamFactor,
+} from './pvModule'
 
 describe('pvModule (proprietà)', () => {
   it('rendimento Huld finito e ≥ 0 per irradianza 0 o ≥ 1 mW/m² e qualunque temperatura realistica', () => {
@@ -45,11 +51,58 @@ describe('pvModule (proprietà)', () => {
     )
   })
 
-  // Difetto noto (segnalato dal tester, gravità bassa, non raggiungibile con dati PVGIS reali):
-  // con irradianza denormale positiva (es. 5e-324) G/1000 vale 0, quindi ln(G/1000) = -Infinity e
-  // il termine T′·(k4·lnG + k5·lnG²) con T′ = 0 (cella a 25 °C) dà 0 × ∞ = NaN; Math.max(0, NaN) = NaN.
-  // `it.fails` passa finché il difetto c'è; quando sarà corretto va trasformata in prova normale.
-  it.fails('irradianza denormale con cella a 25 °C dovrebbe dare un rendimento finito (oggi NaN)', () => {
-    expect(Number.isNaN(huldRelativeEfficiency(5e-324, 25))).toBe(false)
+  // Issue #19 (prima un `it.fails`): con irradianza denormale (es. 5e-324) G/1000 va a 0 per underflow,
+  // ln 0 = −∞ e con cella a 25 °C (T′ = 0) il termine T′·(k4·lnG + k5·lnG²) dava 0 × ∞ = NaN.
+  it('irradianza denormale con cella a 25 °C: rendimento 0, non NaN (issue #19)', () => {
+    expect(huldRelativeEfficiency(5e-324, 25)).toBe(0)
+    expect(huldRelativeEfficiency(Number.MIN_VALUE, 25)).toBe(0)
+    expect(huldDcPower(1000, 5e-324, 25)).toBe(0)
+  })
+
+  it('rendimento Huld finito e ≥ 0 per G in [5e-324, 1e4] W/m² e T in [−50, 100] °C (issue #19)', () => {
+    // Metà dei casi fra i denormali e i numeri piccolissimi, dove stava il difetto.
+    const g = fc.oneof(
+      fc.double({ min: Number.MIN_VALUE, max: 1e-300, noNaN: true }),
+      fc.double({ min: Number.MIN_VALUE, max: 1e4, noNaN: true }),
+    )
+    fc.assert(
+      fc.property(g, fc.double({ min: -50, max: 100, noNaN: true }), (gi, t) => {
+        const eta = huldRelativeEfficiency(gi, t)
+        expect(Number.isFinite(eta) && eta >= 0).toBe(true)
+        expect(Number.isFinite(huldDcPower(1000, gi, t))).toBe(true)
+      }),
+      { numRuns: 1000 },
+    )
+  })
+
+  // Formula di `huldRelativeEfficiency` com'era prima dell'issue #19, copiata qui: la correzione
+  // deve lasciare il risultato identico bit per bit (Object.is) ovunque G/1000 non va a 0.
+  function huldBefore19(g: number, tm: number, k = HULD_CSI_PVGIS5): number {
+    if (!(g > 0)) return 0
+    const lnG = Math.log(g / 1000)
+    const t = tm - 25
+    const eta = 1 + k[0] * lnG + k[1] * lnG ** 2 + t * (k[2] + k[3] * lnG + k[4] * lnG ** 2) + k[5] * t ** 2
+    return Math.max(0, eta)
+  }
+
+  it('per G in [1e-300, 1500] W/m² il risultato è identico (Object.is) alla formula prima del #19', () => {
+    const g = fc.oneof(
+      fc.double({ min: 1e-300, max: 1e-3, noNaN: true }),
+      fc.double({ min: 1e-300, max: 1500, noNaN: true }),
+      fc.constantFrom(1e-300, 1e-3, 1, 200, 800, 1000, 1500),
+    )
+    fc.assert(
+      fc.property(g, fc.double({ min: -50, max: 100, noNaN: true }), (gi, t) => {
+        expect(Object.is(huldRelativeEfficiency(gi, t), huldBefore19(gi, t))).toBe(true)
+      }),
+      { numRuns: 1000 },
+    )
+  })
+
+  it('huldDcPower rifiuta una potenza nominale non finita (issue #19)', () => {
+    for (const p of [Infinity, Number.NaN, -Infinity]) {
+      expect(() => huldDcPower(p, 800, 25)).toThrow(RangeError)
+    }
+    expect(huldDcPower(Number.MAX_VALUE, 0, 25)).toBe(0)
   })
 })

@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest'
 import milanoRaw from './__fixtures__/pvgis-tmy-milano.json'
 import romaRaw from './__fixtures__/pvgis-tmy-roma.json'
 import { parsePvgisTmy } from './pvgisTmy'
-import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem } from './simulate'
+import {
+  DEFAULT_SYSTEM_LOSS_PCT,
+  MAX_PANEL_COUNT,
+  MAX_PANEL_POWER_WP,
+  simulateYear,
+  type PvSystem,
+} from './simulate'
 
 // Prove "a proprietà" (fast-check) su simulateYear. Il seme è fisso (src/test/fastCheckSetup.ts):
 // stessi casi a ogni esecuzione. Ogni simulazione dura ~15 ms: pochi casi per proprietà.
@@ -173,6 +179,16 @@ describe('simulateYear (proprietà)', () => {
       )))
     it('potenza negativa o NaN', () =>
       fuori('panelPowerWp', fc.oneof(negative, fc.constant(Number.NaN))))
+    it('potenza sopra 1000 Wp o infinita (issue #19)', () =>
+      fuori('panelPowerWp', fc.oneof(
+        fc.double({ min: MAX_PANEL_POWER_WP, minExcluded: true, noNaN: true }),
+        fc.constant(Infinity),
+      )))
+    it('più di 1000 pannelli (issue #19)', () =>
+      fuori('panelCount', fc.oneof(
+        fc.integer({ min: MAX_PANEL_COUNT + 1 }),
+        fc.double({ min: 2 ** 53, noNaN: true, noDefaultInfinity: true }),
+      )))
     it('perdite fuori da [0, 100) o NaN', () =>
       fuori('systemLossPct', fc.oneof(
         negative,
@@ -181,12 +197,30 @@ describe('simulateYear (proprietà)', () => {
       )))
   })
 
-  // Difetto noto (segnalato dal tester, gravità bassa): `validateSystem` non ha un limite superiore
-  // per la potenza, quindi Infinity è accettata e produce NaN (Infinity × 0 di notte). Dall'interfaccia
-  // non è raggiungibile (max 700 Wp). `it.fails` passa finché il difetto c'è; quando il motore rifiuterà
-  // Infinity con RangeError la prova fallirà e va trasformata in una prova normale.
-  it.fails('potenza infinita dovrebbe dare RangeError (oggi produce NaN)', () => {
-    const r = simulateYear(CITIES[0].tmy, { tiltDeg: 30, azimuthDeg: 180, panelCount: 10, panelPowerWp: Infinity })
-    expect(Number.isNaN(r.annualKwh)).toBe(false)
+  // Issue #19 (prima un `it.fails`): Infinity era accettata e dava NaN (Infinity × 0 di notte) e non c'era
+  // limite superiore. Ora il motore accetta al massimo MAX_PANEL_POWER_WP (1000 Wp) e MAX_PANEL_COUNT (1000).
+  describe('limiti superiori dell\'impianto (issue #19)', () => {
+    const base: PvSystem = { tiltDeg: 30, azimuthDeg: 180, panelCount: 10, panelPowerWp: 400 }
+    const tmy = CITIES[0].tmy
+
+    it('i limiti valgono 1000 Wp e 1000 pannelli (decisione del PO del 12/11/2026)', () => {
+      expect(MAX_PANEL_POWER_WP).toBe(1000)
+      expect(MAX_PANEL_COUNT).toBe(1000)
+    })
+
+    it.each([Infinity, 1000.0001, 1e300])('potenza di un pannello %s Wp → RangeError', (p) => {
+      expect(() => simulateYear(tmy, { ...base, panelPowerWp: p })).toThrow(RangeError)
+    })
+
+    it.each([1001, 1e300])('%s pannelli → RangeError', (n) => {
+      expect(() => simulateYear(tmy, { ...base, panelCount: n })).toThrow(RangeError)
+    })
+
+    it('accetta esattamente 1000 Wp e 1000 pannelli con un risultato finito', () => {
+      const r = simulateYear(tmy, { ...base, panelPowerWp: 1000, panelCount: 1000 })
+      expect(Number.isFinite(r.annualKwh) && r.annualKwh > 0).toBe(true)
+      r.monthlyKwh.forEach((k) => expect(Number.isFinite(k)).toBe(true))
+      r.hourlyAcPowerW.forEach((w) => expect(Number.isFinite(w)).toBe(true))
+    }, TIMEOUT_MS)
   })
 })
