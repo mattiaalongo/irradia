@@ -95,3 +95,28 @@ describe('messaggi', () => {
     expect(INITIAL_JS_LIMIT_KB).toBeGreaterThan(0)
   })
 })
+
+describe('findInitialScripts: casi limite documentati (L1 del tester)', () => {
+  it('type="MODULE" in maiuscolo e percorsi con ./ sono riconosciuti', () => {
+    expect(findInitialScripts('<script type="MODULE" src="./a.js"></script>')).toEqual(['./a.js'])
+  })
+  it('rel="modulepreload stylesheet" conta come modulepreload', () => {
+    expect(findInitialScripts('<link rel="modulepreload stylesheet" href="/b.js">')).toEqual(['/b.js'])
+  })
+  it('attributi su più righe', () => {
+    expect(findInitialScripts('<script\n type="module"\n src="/a.js"></script>')).toEqual(['/a.js'])
+  })
+  it('script module inline o con src vuoto: ignorati', () => {
+    expect(findInitialScripts('<script type="module">import "/x.js"</script><script type="module" src=""></script>')).toEqual([])
+  })
+  // Comportamento attuale, non desiderato ma non raggiungibile con la build di Vite
+  // (Vite non emette commenti con tag, né query string o URL assoluti nei percorsi):
+  // il percorso viene preso così com'è e, se il file non esiste, main() fallisce con un errore chiaro.
+  it('un tag dentro un commento HTML viene contato (teorico)', () => {
+    expect(findInitialScripts('<!-- <script type="module" src="/old.js"></script> -->')).toEqual(['/old.js'])
+  })
+  it('query string e URL assoluti restano nel percorso (teorico, fallisce rumorosamente)', () => {
+    expect(findInitialScripts('<script type="module" src="/a.js?v=1"></script>')).toEqual(['/a.js?v=1'])
+    expect(findInitialScripts('<script type="module" src="https://cdn.example/a.js"></script>')).toEqual(['https://cdn.example/a.js'])
+  })
+})
