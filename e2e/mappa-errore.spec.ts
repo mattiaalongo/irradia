@@ -24,6 +24,13 @@ const ATTESI_CSS = [
 ]
 const ATTESI_LANCIA = [/^console\.error: Error: boom\n/]
 
+// Un tentativo di caricamento della mappa fa 1 oppure 2 richieste del file JS, a seconda dei tempi:
+// l'aiutante di Vite (`__vitePreload`) aggiunge un <link rel="modulepreload"> e chiama `import()` solo
+// dopo l'arrivo del CSS; se intanto il preload è già fallito, il browser può richiedere di nuovo il file.
+// Visto nella CI (2 richieste) e mai riprodotto in locale (1). Le prove controllano quindi che il
+// numero resti fermo dopo il primo tentativo, non che sia esattamente 1.
+const RICHIESTE_PER_TENTATIVO = 2
+
 type Guasto = (route: Route) => Promise<void> | void
 const abort: Guasto = (route) => route.abort('internetdisconnected')
 const risposta404: Guasto = (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' })
@@ -237,14 +244,17 @@ test.describe('telefono', () => {
     await page.getByRole('button', { name: 'Scegli sulla mappa' }).click()
     await attendi(page, () => avviso(page).isVisible())
     await expect(ricarica(page)).toBeVisible()
-    expect(file.count()).toBe(1)
+    const primoTentativo = file.count()
+    expect(primoTentativo).toBeGreaterThanOrEqual(1)
+    expect(primoTentativo).toBeLessThanOrEqual(RICHIESTE_PER_TENTATIVO)
 
     await page.getByRole('button', { name: 'Chiudi la mappa' }).click()
     await expect(avviso(page)).toBeHidden()
     await page.getByRole('button', { name: 'Scegli sulla mappa' }).click()
     await expect(avviso(page)).toBeVisible()
     await sincronizza(page)
-    expect(file.count()).toBe(1)
+    // Riaprire non riscarica: nessuna richiesta in più rispetto al primo tentativo.
+    expect(file.count()).toBe(primoTentativo)
   })
 
   test('nessun scorrimento orizzontale con il messaggio, a 360, 390 e 412 px', async ({ page, pvgis, consoleGuard }) => {
@@ -263,7 +273,7 @@ test.describe('telefono', () => {
     }
   })
 
-  test('doppio clic e apri/chiudi rapidi non fanno più di una richiesta del file né errori non dichiarati', async ({
+  test('doppio clic e apri/chiudi rapidi non fanno più di un tentativo di caricamento né errori non dichiarati', async ({
     page,
     pvgis,
     consoleGuard,
@@ -278,6 +288,13 @@ test.describe('telefono', () => {
     await page.getByRole('button', { name: 'Scegli sulla mappa' }).click().catch(() => {})
     await attendi(page, () => avviso(page).count().then((n) => n === 1))
     await sincronizza(page)
-    expect(file.count()).toBe(1)
+    // Un solo tentativo di caricamento (1 o 2 richieste, vedi RICHIESTE_PER_TENTATIVO)...
+    const dopo = file.count()
+    expect(dopo).toBeGreaterThanOrEqual(1)
+    expect(dopo).toBeLessThanOrEqual(RICHIESTE_PER_TENTATIVO)
+    // ...e nessun nuovo tentativo partito più tardi.
+    await page.clock.runFor(2000)
+    await sincronizza(page)
+    expect(file.count()).toBe(dopo)
   })
 })
