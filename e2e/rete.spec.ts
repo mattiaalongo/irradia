@@ -108,11 +108,12 @@ test.describe('errori di PVGIS', () => {
   const scenari: { nome: string; attiva: (p: PvgisMock) => void; testo: RegExp; consoleAttesa: boolean; generico?: false }[] = [
     // Mare: testo dedicato, senza "HTTP 400" né inglese (issue #11).
     { nome: 'HTTP 400 in mare', attiva: (p) => p.fail(400, 'Location over the sea. Please, select another location'),
-      testo: /Il punto scelto risulta in mare.*Scegli un punto sulla terraferma\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
+      testo: /Per il punto scelto non ci sono dati: risulta in mare.*Scegli un punto sulla terraferma\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
     { nome: 'pagina HTML con codice 200 (firewall)', attiva: (p) => p.firewallHtml(),
       testo: /non leggibile come JSON/, consoleAttesa: false },
+    // Rete assente: stesso testo del servizio non raggiungibile (issue #21).
     { nome: 'rete assente', attiva: (p) => p.offline(),
-      testo: /Impossibile contattare PVGIS/, consoleAttesa: true },
+      testo: /Riprova tra qualche secondo\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
     { nome: 'JSON malformato', attiva: (p) => p.malformedJson(),
       testo: /non leggibile come JSON/, consoleAttesa: false },
   ]
@@ -183,7 +184,7 @@ test.describe('errori di PVGIS', () => {
         return pvgis.count
       })
       .toBe(1)
-    await expect(page.getByRole('alert')).toContainText('Il punto scelto risulta in mare')
+    await expect(page.getByRole('alert')).toContainText('risulta in mare')
     await expect(totale(page)).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('NaN')
   })
@@ -334,4 +335,106 @@ test.describe('riepilogo dell\'impianto coerente in ogni istante (issue #15)', (
       expect(incoerenti(registrati), `stati registrati: ${JSON.stringify(registrati)}`).toEqual([])
     })
   }
+})
+
+// Issue #21: con la connessione a PVGIS caduta l'intermediario risponde 502/503/504 senza JSON
+// (il proxy di Vite: 502, text/plain, corpo vuoto). L'avviso deve dire che il problema è
+// temporaneo, senza "HTTP", "JSON" né "PVGIS" e senza NaN.
+test.describe('servizio non raggiungibile (issue #21)', () => {
+  const TEMPORANEO =
+    'I dati non sono disponibili in questo momento: può essere un problema temporaneo del servizio o della connessione a Internet. Riprova tra qualche secondo.'
+  const PRECEDENTE = 'I valori mostrati sono quelli della posizione precedente.'
+  const barra = (page: Page) => page.getByTestId('sticky-total')
+
+  /** Primo caricamento senza risposta valida: aspetta che parta l'unica richiesta. */
+  async function primoCaricamento(page: Page, pvgis: PvgisMock): Promise<void> {
+    await page.goto('/')
+    await expect(campo(page, ETICHETTE.lat)).toBeVisible()
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(DEBOUNCE_MS)
+        return pvgis.count
+      })
+      .toBe(1)
+  }
+
+  const casi = [
+    { nome: '502 vuoto text/plain (proxy di Vite)', status: 502, body: '', contentType: 'text/plain' },
+    { nome: '503 pagina HTML', status: 503, body: '<html><body><h1>503 Service Unavailable</h1></body></html>', contentType: 'text/html' },
+    { nome: '504 vuoto', status: 504, body: '', contentType: 'text/plain' },
+  ]
+
+  for (const c of casi) {
+    test(`${c.nome}: avviso "riprova", risultato precedente invariato`, async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      const totalePrima = await totale(page).innerText()
+
+      pvgis.gatewayError(c.status, c.body, c.contentType)
+      await impostaPosizione(page, MILANO.lat, MILANO.lon)
+      await page.clock.runFor(DEBOUNCE_MS)
+
+      const avviso = page.getByRole('alert')
+      await expect(avviso).toHaveCount(1)
+      await expect(avviso).toHaveText(`${TEMPORANEO} ${PRECEDENTE}`)
+      await expect(avviso).not.toContainText(/HTTP|JSON|PVGIS|\d{3}/)
+      await expect(page.locator('body')).not.toContainText('NaN')
+      expect(await totale(page).innerText()).toBe(totalePrima)
+      await expect(page.getByRole('region', { name: 'Risultati' })).toHaveAttribute('aria-busy', 'false')
+    })
+  }
+
+  test('502 al primo caricamento: avviso senza frase sulla posizione precedente, nessun totale', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await orologioFermo(page)
+    pvgis.gatewayError(502)
+    await primoCaricamento(page, pvgis)
+    await expect(page.getByRole('alert')).toHaveText(TEMPORANEO)
+    await expect(totale(page)).toHaveCount(0)
+    await expect(page.locator('body')).not.toContainText('NaN')
+  })
+
+  for (const s of [
+    { nome: 'pagina HTML con codice 200 (firewall)', attiva: (p: PvgisMock) => p.firewallHtml() },
+    { nome: 'JSON malformato con codice 200', attiva: (p: PvgisMock) => p.malformedJson() },
+  ]) {
+    test(`${s.nome}: resta il testo generico, non "riprova"`, async ({ page, pvgis }) => {
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      s.attiva(pvgis)
+      await impostaPosizione(page, MILANO.lat, MILANO.lon)
+      await page.clock.runFor(DEBOUNCE_MS)
+      const avviso = page.getByRole('alert')
+      await expect(avviso).toContainText('Dati non disponibili per questa posizione.')
+      await expect(avviso).toContainText('non leggibile come JSON')
+      await expect(avviso).not.toContainText('Riprova')
+    })
+  }
+
+  test.describe('barra fissa del telefono', () => {
+    test.use({ viewport: { width: 390, height: 800 } })
+
+    test('502 con risultato precedente: "Dati non disponibili ora" e il numero vecchio', async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      pvgis.gatewayError(502)
+      await impostaPosizione(page, MILANO.lat, MILANO.lon)
+      await page.clock.runFor(DEBOUNCE_MS)
+      await expect(page.getByRole('alert')).toBeVisible()
+      await expect(barra(page)).toContainText('Dati non disponibili ora')
+      await expect(barra(page)).toContainText('kWh')
+      await expect(barra(page)).not.toContainText(/NaN|HTTP|Aggiorno/)
+    })
+
+    test('504 al primo caricamento: "Dati non disponibili ora", nessun numero', async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      pvgis.gatewayError(504)
+      await primoCaricamento(page, pvgis)
+      await expect(barra(page)).toContainText('Dati non disponibili ora')
+      await expect(barra(page)).not.toContainText(/kWh|NaN|HTTP/)
+    })
+  })
 })

@@ -39,9 +39,9 @@ test.describe('avviso con i corpi reali di PVGIS', () => {
     const avviso = page.getByRole('alert')
     await expect(avviso).toHaveCount(1)
     await expect(avviso).toHaveText(
-      `Il punto scelto risulta in mare e PVGIS non ha dati per il mare. Scegli un punto sulla terraferma. ${PRECEDENTE}`,
+      `Per il punto scelto non ci sono dati: risulta in mare. Scegli un punto sulla terraferma. ${PRECEDENTE}`,
     )
-    await expect(avviso).not.toContainText(/HTTP|Location|sea|PVGIS5/)
+    await expect(avviso).not.toContainText(/HTTP|Location|sea|PVGIS/)
     expect(await totale(page).innerText()).toBe(prima)
     expect(pvgis.count).toBe(2)
   })
@@ -51,7 +51,7 @@ test.describe('avviso con i corpi reali di PVGIS', () => {
     await primoCaricamento(page, pvgis)
     const avviso = page.getByRole('alert')
     await expect(avviso).toHaveCount(1)
-    await expect(avviso).toHaveText('Il punto scelto risulta in mare e PVGIS non ha dati per il mare. Scegli un punto sulla terraferma.')
+    await expect(avviso).toHaveText('Per il punto scelto non ci sono dati: risulta in mare. Scegli un punto sulla terraferma.')
     await expect(avviso).not.toContainText('precedente')
     await expect(totale(page)).toHaveCount(0)
   })
@@ -63,9 +63,9 @@ test.describe('avviso con i corpi reali di PVGIS', () => {
     const avviso = page.getByRole('alert')
     await expect(avviso).toHaveCount(1)
     await expect(avviso).toHaveText(
-      `PVGIS non ha dati per questo punto: è fuori dalla zona coperta. Scegli un altro punto. ${PRECEDENTE}`,
+      `Per il punto scelto non ci sono dati: è fuori dalla zona coperta. Scegli un altro punto. ${PRECEDENTE}`,
     )
-    await expect(avviso).not.toContainText(/HTTP|400|Location|spatial|coverage/)
+    await expect(avviso).not.toContainText(/HTTP|400|Location|spatial|coverage|PVGIS/)
   })
 
   test('testo PVGIS sconosciuto (400): messaggio generico con dettaglio', async ({ page, pvgis }) => {
@@ -76,7 +76,7 @@ test.describe('avviso con i corpi reali di PVGIS', () => {
     await expect(avviso).toHaveCount(1)
     await expect(avviso).toContainText('Dati non disponibili per questa posizione.')
     await expect(avviso).toContainText('Incorrect value')
-    await expect(avviso).not.toContainText('Il punto scelto risulta in mare')
+    await expect(avviso).not.toContainText('risulta in mare')
     await expect(avviso).not.toContainText('fuori dalla zona coperta')
   })
 
@@ -87,7 +87,7 @@ test.describe('avviso con i corpi reali di PVGIS', () => {
     const avviso = page.getByRole('alert')
     await expect(avviso).toHaveCount(1)
     await expect(avviso).toContainText('Dati non disponibili per questa posizione.')
-    await expect(avviso).not.toContainText('Il punto scelto risulta in mare')
+    await expect(avviso).not.toContainText('risulta in mare')
   })
 
   test('ritorno dal mare a una posizione valida: avviso sparito e risultato aggiornato', async ({ page, pvgis }) => {
@@ -116,7 +116,7 @@ test.describe('avviso con i corpi reali di PVGIS', () => {
     await expect(campo(page, ETICHETTE.lon)).not.toHaveValue('12,4964')
     await page.clock.runFor(DEBOUNCE_MS)
     await expect(page.getByRole('alert')).toHaveCount(1)
-    await expect(page.getByRole('alert')).toContainText('Il punto scelto risulta in mare')
+    await expect(page.getByRole('alert')).toContainText('risulta in mare')
     await expect(page.getByRole('alert')).toContainText(PRECEDENTE)
     expect(pvgis.count).toBe(prima + 1)
   })
@@ -128,7 +128,7 @@ test.describe('barra fissa a 360 px', () => {
   for (const tema of ['light', 'dark'] as const) {
     for (const caso of [
       { nome: 'mare', corpo: PVGIS_ERROR_BODIES.sea, testo: 'Punto in mare' },
-      { nome: 'fuori copertura', corpo: PVGIS_ERROR_BODIES.coverage, testo: 'Fuori zona PVGIS' },
+      { nome: 'fuori copertura', corpo: PVGIS_ERROR_BODIES.coverage, testo: 'Fuori zona coperta' },
     ]) {
       for (const conRisultato of [false, true]) {
         test(`${tema}, ${caso.nome}, ${conRisultato ? 'con' : 'senza'} risultato: una riga, senza tagli`, async ({ page, pvgis, consoleGuard }) => {
