@@ -51,16 +51,26 @@ describe('parseDecimal (proprietà)', () => {
     )
   })
 
-  it('un testo di sole cifre molto lungo non produce un valore accettabile (Infinity viene respinto dal controllo)', () => {
+  it('un testo di sole cifre molto lungo (≥ 309 cifre: Infinity) non produce un valore accettabile', () => {
+    // Number('9'.repeat(n)) è finito fino a 308 cifre (≈ 1e308 < Number.MAX_VALUE) e Infinity da 309:
+    // il controllo "≥ 310" lascia margine. Con 300 cifre il valore (≈ 1e300) è finito (#48).
     fc.assert(
-      fc.property(fc.integer({ min: 300, max: 2000 }), (len) => {
+      fc.property(fc.integer({ min: 310, max: 2000 }), (len) => {
         const t = '9'.repeat(len)
         // Il valore è Infinity, ma validationMessage lo respinge sempre: non arriva mai all'app.
         expect(validationMessage(t, 0, 1e300, false)).not.toBeNull()
         expect(validationMessage(t, 34, 72, false)).not.toBeNull()
       }),
-      { numRuns: 20 },
+      // 309 = primo valore Infinity; 300 = controesempio del seme 987654 (finito, ma fuori da 34-72).
+      { numRuns: 20, examples: [[309], [310], [2000]] },
     )
+  })
+
+  it('un testo di 300 cifre (valore finito ≈ 1e300) è respinto fuori dall\'intervallo e accettato dentro un intervallo che lo contiene (#48)', () => {
+    const t = '9'.repeat(300)
+    expect(Number.isFinite(Number(t))).toBe(true)
+    expect(validationMessage(t, 34, 72, false)).not.toBeNull()
+    expect(validationMessage(t, 0, 1e301, false)).toBeNull()
   })
 })
 
