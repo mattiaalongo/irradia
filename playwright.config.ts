@@ -3,6 +3,19 @@ import { defineConfig, devices } from '@playwright/test'
 // Configurazione delle prove nel browser (Playwright). Girano su Chromium contro
 // la build di produzione servita da `vite preview`.
 // https://playwright.dev/docs/test-configuration
+// Porta di `vite preview`: PW_PORT (intero 1024-65535), predefinita 4173. Con più copie di lavoro
+// in parallelo ognuna usa la sua porta (#46). Un valore non valido ferma subito l'esecuzione.
+const DEFAULT_PORT = 4173
+function readPort(raw: string | undefined): number {
+  if (raw === undefined || raw === '') return DEFAULT_PORT
+  const port = Number(raw)
+  if (!/^\d+$/.test(raw.trim()) || port < 1024 || port > 65535) {
+    throw new Error(`PW_PORT non valida: "${raw}". Serve un intero tra 1024 e 65535 (predefinita ${DEFAULT_PORT}).`)
+  }
+  return port
+}
+const PORT = readPort(process.env.PW_PORT)
+
 export default defineConfig({
   // Le prove stanno in e2e/, separate da src/: Vitest non le raccoglie (vedi
   // `test.include` in vite.config.ts) e Playwright non raccoglie i test di Vitest.
@@ -32,7 +45,7 @@ export default defineConfig({
 
   use: {
     // `vite preview` serve la build su questa porta (vedi webServer sotto).
-    baseURL: 'http://localhost:4173',
+    baseURL: `http://localhost:${PORT}`,
 
     // Lingua e fuso fissi: i numeri ("6.498") e i mesi sono in italiano e le
     // prove non devono dipendere dalle impostazioni del PC o del runner.
@@ -69,10 +82,12 @@ export default defineConfig({
   // server di sviluppo. `--strictPort` fa fallire l'avvio se la porta è occupata
   // invece di passare in silenzio a un'altra (baseURL non sarebbe più valido).
   webServer: {
-    command: 'npx vite build && npx vite preview --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    // In locale riusa un server già acceso (più veloce); in CI parte sempre pulito.
-    reuseExistingServer: !process.env.CI,
+    command: `npx vite build && npx vite preview --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}`,
+    // Mai riusare un server già acceso (#46): potrebbe servire la build di un altro ramo/copia di
+    // lavoro e la prova passerebbe sul codice sbagliato. Con --strictPort una porta occupata fa
+    // fallire subito e in modo chiaro l'avvio; allora scegliere un'altra porta con PW_PORT.
+    reuseExistingServer: false,
     // La build richiede qualche decina di secondi: margine ampio.
     timeout: 120_000,
   },
