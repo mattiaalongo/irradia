@@ -64,3 +64,17 @@ export async function sincronizza(page: Page): Promise<void> {
   await page.evaluate(() => 0)
 }
 
+/** Luminanza relativa (WCAG) di un colore calcolato dal browser: `rgb(...)` o `color(srgb ...)`. */
+function luminanza(css: string): number {
+  const n = css.match(/-?\d*\.?\d+(?:e-?\d+)?/g)!.map(Number)
+  const [r, g, b] = css.startsWith('color(srgb') ? n.slice(0, 3).map((x) => x * 255) : n.slice(0, 3)
+  const lin = (c: number) => (c / 255 <= 0.03928 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+/** Rapporto di contrasto WCAG tra due colori calcolati. */
+export function contrasto(a: string, b: string): number {
+  const [x, y] = [luminanza(a), luminanza(b)].sort((p, q) => q - p)
+  return (x + 0.05) / (y + 0.05)
+}
+

@@ -1,6 +1,40 @@
+import type { Locator } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { MONTH_NAMES } from '../src/ui/format'
-import { DEBOUNCE_MS, ETICHETTE, avvio, campo, orologioFermo, sincronizza, slider, totale } from './helpers'
+import { DEBOUNCE_MS, ETICHETTE, avvio, campo, contrasto, orologioFermo, sincronizza, slider, totale } from './helpers'
+
+/** Anello di focus della barra a fuoco: colore, spessore, contrasto e distanza dalla barra (#20). */
+async function verificaAnello(barra: Locator, nome: string): Promise<void> {
+  const d = await barra.evaluate((g) => {
+    const anello = g.querySelector('.chart-focus')!
+    const s = getComputedStyle(anello)
+    const r = anello.getBoundingClientRect()
+    const b = g.querySelector('.chart-bar-fill')!.getBoundingClientRect()
+    // --fg risolto come colore di testo: il browser lo restituisce nello stesso formato del tratto.
+    const sonda = document.createElement('span')
+    sonda.style.color = 'var(--fg)'
+    document.body.append(sonda)
+    const fg = getComputedStyle(sonda).color
+    sonda.remove()
+    return {
+      display: s.display, stroke: s.stroke, fg, sfondo: getComputedStyle(document.body).backgroundColor,
+      width: parseFloat(s.strokeWidth), vector: s.vectorEffect,
+      ring: { l: r.left, r: r.right, t: r.top, b: r.bottom },
+      bar: { l: b.left, r: b.right, t: b.top, b: b.bottom },
+    }
+  })
+  expect(d.display, `${nome}: anello visibile`).not.toBe('none')
+  expect(d.stroke, `${nome}: tratto = --fg`).toBe(d.fg)
+  expect(d.width, `${nome}: spessore`).toBeGreaterThanOrEqual(2)
+  expect(d.vector, `${nome}: vector-effect`).toBe('non-scaling-stroke')
+  expect(contrasto(d.stroke, d.sfondo), `${nome}: contrasto tratto/sfondo`).toBeGreaterThanOrEqual(3)
+  // L'anello non tocca la barra: tra la barra e il bordo interno del tratto resta spazio libero.
+  const w = d.width
+  expect(d.bar.l, `${nome}: sinistra`).toBeGreaterThan(d.ring.l + w)
+  expect(d.bar.r, `${nome}: destra`).toBeLessThan(d.ring.r - w)
+  expect(d.bar.t, `${nome}: sopra`).toBeGreaterThan(d.ring.t + w)
+  expect(d.bar.b, `${nome}: sotto`).toBeLessThan(d.ring.b - w)
+}
 
 // Controllo dei campi numerici e uso da tastiera.
 // Comportamento reale dell'app (NumberSlider): un testo non valido mostra il messaggio e
@@ -199,11 +233,71 @@ test.describe('tastiera', () => {
       await page.keyboard.press('Tab')
       const barra = page.getByRole('img', { name: new RegExp(`^${MONTH_NAMES[m]}:`) })
       await expect(barra).toBeFocused()
-      // Le barre non hanno outline (vedi index.css): il fuoco è un tratto sul rettangolo sensibile.
-      const tratto = await barra.locator('rect').evaluate((el) => getComputedStyle(el).strokeWidth)
-      expect(parseFloat(tratto), `tratto di fuoco della barra ${m + 1}`).toBeGreaterThan(0)
+      // Le barre non hanno outline (vedi index.css): il fuoco è l'anello .chart-focus (#20).
+      await verificaAnello(barra, `barra ${m + 1}`)
     }
   })
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    for (const larghezza of [1280, 360]) {
+      test(`anello di focus delle barre: tema ${colorScheme}, ${larghezza} px`, async ({ page, pvgis }) => {
+        await page.emulateMedia({ colorScheme })
+        await page.setViewportSize({ width: larghezza, height: 900 })
+        await orologioFermo(page)
+        await avvio(page, pvgis)
+        const barra = (m: number) => page.getByRole('img', { name: new RegExp(`^${MONTH_NAMES[m]}:`) })
+        const anello = (m: number) => barra(m).locator('.chart-focus')
+        // Nessun fuoco: anello nascosto.
+        await expect(anello(0)).toBeHidden()
+        // Tab fino alla seconda barra: l'anello segue il fuoco.
+        await barra(0).focus()
+        await page.keyboard.press('Tab')
+        await expect(barra(1)).toBeFocused()
+        await verificaAnello(barra(1), 'febbraio')
+        await expect(anello(0)).toBeHidden()
+        await expect(anello(2)).toBeHidden()
+      })
+
+      test(`il passaggio del mouse non mostra l'anello: tema ${colorScheme}, ${larghezza} px`, async ({ page, pvgis }) => {
+        await page.emulateMedia({ colorScheme })
+        await page.setViewportSize({ width: larghezza, height: 900 })
+        await orologioFermo(page)
+        await avvio(page, pvgis)
+        const barra = page.getByRole('img', { name: /^Giugno:/ })
+        await barra.locator('.chart-hit').hover()
+        await expect(page.getByText(/^Giugno [\d.]+ kWh$/)).toBeVisible()
+        await expect(barra.locator('.chart-focus')).toBeHidden()
+      })
+    }
+
+    test(`anello del pulsante della mappa: tema ${colorScheme}, 360 px`, async ({ page, pvgis }) => {
+      await page.emulateMedia({ colorScheme })
+      await page.setViewportSize({ width: 360, height: 800 })
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      const pulsante = page.getByRole('button', { name: 'Scegli sulla mappa' })
+      // Prima un Tab (modalità tastiera), poi il fuoco sul pulsante: :focus-visible si applica.
+      await page.keyboard.press('Tab')
+      await pulsante.focus()
+      await expect(pulsante).toBeFocused()
+      const d = await pulsante.evaluate((el) => {
+        const s = getComputedStyle(el)
+        const sonda = document.createElement('span')
+        sonda.style.color = 'var(--fg)'
+        document.body.append(sonda)
+        const fg = getComputedStyle(sonda).color
+        sonda.remove()
+        return {
+          stile: s.outlineStyle, spessore: parseFloat(s.outlineWidth), colore: s.outlineColor, fg,
+          sfondo: getComputedStyle(document.body).backgroundColor,
+        }
+      })
+      expect(d.stile).not.toBe('none')
+      expect(d.spessore).toBeGreaterThanOrEqual(2)
+      expect(d.colore).toBe(d.fg)
+      expect(contrasto(d.colore, d.sfondo)).toBeGreaterThanOrEqual(3)
+    })
+  }
 
   test('Tab su una barra mostra il valore del mese; spostando il fuoco cambia', async ({ page, pvgis }) => {
     await orologioFermo(page)

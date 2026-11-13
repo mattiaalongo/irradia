@@ -24,6 +24,11 @@ const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom
 const baseline = MARGIN.top + plotHeight
 const band = plotWidth / 12
 const barWidth = Math.min(MAX_BAR_WIDTH, band * 0.6)
+/** Anello di focus: rientrato dai bordi della fascia, dalla cima del disegno (include il valore sopra
+ *  la barra più alta) fin sotto l'etichetta del mese. Lascia ≈ 9 unità libere per lato attorno alla barra. */
+const FOCUS_INSET = 2
+const FOCUS_TOP = FOCUS_INSET
+const FOCUS_HEIGHT = HEIGHT - 2 * FOCUS_INSET
 
 /** Percorso di una barra con gli angoli in alto arrotondati e la base squadrata. */
 function barPath(x: number, y: number, w: number, h: number): string {
@@ -94,6 +99,16 @@ export default function MonthlyChart({ monthlyKwh }: MonthlyChartProps) {
             >
               {/* Area sensibile più grande della barra, per un passaggio del mouse comodo. */}
               <rect className="chart-hit" x={b.center - band / 2} y={MARGIN.top} width={band} height={plotHeight} />
+              {/* Anello di focus da tastiera (#20): visibile solo con :focus-visible, vedi index.css. */}
+              <rect
+                className="chart-focus"
+                x={b.center - band / 2 + FOCUS_INSET}
+                y={FOCUS_TOP}
+                width={band - 2 * FOCUS_INSET}
+                height={FOCUS_HEIGHT}
+                rx={4}
+                aria-hidden="true"
+              />
               <path className="chart-bar-fill" d={barPath(b.x, b.y, barWidth, b.h)} />
               {(b.i === maxIndex || b.i === minIndex) && (
                 <text className="chart-value" x={b.center} y={b.y - 6} textAnchor="middle">

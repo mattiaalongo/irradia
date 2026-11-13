@@ -8,6 +8,8 @@
   --border: #d9d9d2;
   --grid: #e6e6e0;
   --accent: #d98a00;
+  /* Anello di focus: --fg (16:1 sullo sfondo chiaro, 15:1 sullo scuro; nei temi segue --fg). --accent darebbe 2,65:1, sotto il 3:1 di WCAG 1.4.11. */
+  --focus-ring: var(--fg);
   /* Colore delle barre: verificato con il validatore della guida dataviz (banda di
      luminosità, saturazione). Sul fondo chiaro il contrasto è 2,7:1, sotto 3:1: per
      questo il grafico ha sempre la tabella dei valori e le etichette sugli estremi. */
@@ -122,7 +124,9 @@ input[aria-invalid='true'] { border-color: var(--error); }
 .chart-value { pointer-events: none; }
 .chart-bar { outline: none; cursor: default; }
 .chart-bar.dimmed .chart-bar-fill { opacity: 0.35; }
-.chart-bar:focus-visible .chart-hit { stroke: var(--fg); stroke-width: 1; }
+.chart-focus { display: none; fill: none; stroke: var(--focus-ring); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.chart-bar:focus-visible .chart-focus { display: inline; }
+@media (forced-colors: active) { .chart-focus { stroke: CanvasText; } }
 
 /* Su schermo stretto il disegno si rimpicciolisce: si ingrandiscono i testi (in unità SVG)
    perché restino leggibili (≈ 10 px effettivi). */
@@ -222,7 +226,7 @@ input[aria-invalid='true'] { border-color: var(--error); }
   color: var(--fg);
   cursor: pointer;
 }
-.map-toggle:focus-visible, .map:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.map-toggle:focus-visible, .map:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* Errore di caricamento della mappa e rete di sicurezza dell'intera pagina (issue #38). */
 .map-error {
@@ -247,7 +251,7 @@ input[aria-invalid='true'] { border-color: var(--error); }
   color: var(--fg);
   cursor: pointer;
 }
-.reload-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reload-button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 .map-picker { margin-bottom: 12px; }
 .map {
