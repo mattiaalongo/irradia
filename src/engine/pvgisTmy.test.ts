@@ -6,7 +6,7 @@ import aostaRaw from './__fixtures__/pvgis-tmy-aosta.json'
 import aostaNoHorizonRaw from './__fixtures__/pvgis-tmy-aosta-nohorizon.json'
 import seaErrorRaw from './__fixtures__/pvgis-error-sea.json'
 import coverageErrorRaw from './__fixtures__/pvgis-error-coverage.json'
-import { fetchPvgisTmy, parsePvgisTmy, PvgisError, pvgisTmyUrl, TMY_HOURS, type Tmy } from './pvgisTmy'
+import { fetchPvgisTmy, parsePvgisTmy, PvgisError, pvgisTmyUrl, TMY_HOURS, type Tmy, UNAVAILABLE_STATUSES } from './pvgisTmy'
 import { solarPosition } from './solarPosition'
 
 // File di esempio: risposta reale di PVGIS 5.3 (strumento "tmy") per Roma centro,
@@ -400,8 +400,13 @@ describe('fetchPvgisTmy — con una finta fetch (nessuna rete)', () => {
   })
 
   it('risposta non JSON', async () => {
+    const f = fakeFetch(async () => new Response('<html>Internal Server Error</html>', { status: 500 }))
+    await expect(fetchPvgisTmy(0, 0, { baseUrl: '/api/pvgis', fetch: f.fn })).rejects.toThrow(/non leggibile.*HTTP 500/)
+  })
+
+  it('502 senza JSON (proxy che non raggiunge PVGIS) → servizio non raggiungibile', async () => {
     const f = fakeFetch(async () => new Response('<html>Bad Gateway</html>', { status: 502 }))
-    await expect(fetchPvgisTmy(0, 0, { baseUrl: '/api/pvgis', fetch: f.fn })).rejects.toThrow(/non leggibile.*HTTP 502/)
+    await expect(fetchPvgisTmy(0, 0, { baseUrl: '/api/pvgis', fetch: f.fn })).rejects.toThrow(/non raggiungibile.*HTTP 502/)
   })
 
   it('errore di rete', async () => {
@@ -516,8 +521,44 @@ describe('fetchPvgisTmy — tipo dell\'errore (kind), issue #11', () => {
     }
   })
 
+  it('502/503/504 con corpo vuoto text/plain (come il proxy di Vite) o HTML → unavailable, con lo stato', async () => {
+    // Il proxy di Vite, se la connessione a PVGIS fallisce, risponde
+    // `res.writeHead(502, {"Content-Type":"text/plain"}).end()` (codice di Vite, verificato il 12/11/2026).
+    for (const status of [502, 503, 504]) {
+      for (const [body, contentType] of [
+        ['', 'text/plain'],
+        ['<html><body>Service Unavailable</body></html>', 'text/html'],
+      ] as const) {
+        const err = await failure(respond(body, status, contentType))
+        expect(err.kind, `${status} ${contentType}`).toBe('unavailable')
+        expect(err.status).toBe(status)
+        expect(err.cause).toBeInstanceOf(SyntaxError)
+      }
+    }
+  })
+
+  it('gli stati di "non raggiungibile" sono esattamente 502, 503, 504 (RFC 9110 §15.6.3-15.6.5)', () => {
+    expect(UNAVAILABLE_STATUSES).toEqual([502, 503, 504])
+  })
+
+  it('altri 5xx senza JSON (500, 501, 505) → notJson, non unavailable', async () => {
+    for (const status of [500, 501, 505]) {
+      const err = await failure(respond('', status, 'text/plain'))
+      expect(err.kind, String(status)).toBe('notJson')
+      expect(err.status).toBe(status)
+    }
+  })
+
+  it('502/503/504 con corpo JSON → rejected (risponde chi ha il dato, non un intermediario muto)', async () => {
+    for (const status of [502, 503, 504]) {
+      const err = await failure(respond(JSON.stringify({ message: 'Server busy', status }), status))
+      expect(err.kind, String(status)).toBe('rejected')
+      expect(err.status).toBe(status)
+    }
+  })
+
   it('risposta non JSON (pagina HTML del firewall, anche con codice 200) → notJson', async () => {
-    for (const status of [200, 400, 502]) {
+    for (const status of [200, 400, 500]) {
       const err = await failure(respond('<html>Request Rejected</html>', status, 'text/html'))
       expect(err.kind, String(status)).toBe('notJson')
       expect(err.status).toBe(status)

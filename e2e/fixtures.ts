@@ -96,6 +96,13 @@ export class PvgisMock {
       }),
     )
   }
+  /**
+   * Risposta di un intermediario che non raggiunge PVGIS (issue #21). Esempio reale: il proxy di
+   * Vite risponde 502 con `Content-Type: text/plain` e corpo vuoto quando la connessione fallisce.
+   */
+  gatewayError(status: number, body = '', contentType = 'text/plain'): void {
+    this.use((route) => route.fulfill({ status, contentType, body }))
+  }
   /** Rete assente. */
   offline(): void {
     this.use((route) => route.abort('internetdisconnected'))

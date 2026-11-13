@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { Tmy } from './engine/pvgisTmy'
 import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult } from './engine/simulate'
 import AnnualTotal from './ui/AnnualTotal'
@@ -59,6 +59,28 @@ export default function App() {
 
   const errorText = tmyState.status === 'error' ? describeTmyError(tmyState.error) : null
 
+  // "Riprova" (#21): resta visibile (disattivato) durante il nuovo tentativo, così il focus non va perso.
+  const retrying = tmyState.status === 'loading' && tmyState.retrying
+  const showRetry = Boolean(errorText?.retry) || retrying
+  const { retry } = tmyState
+  const resultsRef = useRef<HTMLElement>(null)
+  const focusResults = useRef(false)
+  // Quando il pulsante sparisce (nuovo tentativo riuscito, o altra posizione) mentre ha il focus, il
+  // browser lo porterebbe su <body>: lo si sposta sulla sezione dei risultati. Il ref chiama la
+  // funzione di pulizia durante la rimozione, quando il pulsante è ancora nel documento.
+  const retryButtonRef = useCallback((node: HTMLButtonElement | null) => {
+    if (!node) return
+    return () => {
+      if (document.activeElement === node) focusResults.current = true
+    }
+  }, [])
+  useEffect(() => {
+    if (focusResults.current && !showRetry) {
+      focusResults.current = false
+      resultsRef.current?.focus()
+    }
+  })
+
   let sticky: StickyTotalState
   if (simulation && 'year' in simulation) sticky = { kind: 'ready', annualKwh: simulation.year.annualKwh, updating: tmyState.status === 'loading', failed: tmyState.status === 'error', shortError: errorText?.short }
   else if (tmyState.status === 'loading') sticky = { kind: 'loading' }
@@ -105,7 +127,7 @@ export default function App() {
           </fieldset>
         </section>
 
-        <section className="results" aria-label="Risultati" aria-busy={tmyState.status === 'loading'}>
+        <section className="results" aria-label="Risultati" ref={resultsRef} tabIndex={-1} aria-busy={tmyState.status === 'loading'}>
           {tmyState.status === 'loading' && <p className="status">Scarico l'anno tipo da PVGIS…</p>}
           {errorText && (
             <p className="status error" role="alert">
@@ -113,6 +135,13 @@ export default function App() {
               {errorText.detail ? ` ${errorText.detail}` : ''}
               {tmy ? ' I valori mostrati sono quelli della posizione precedente.' : ''}
             </p>
+          )}
+
+          {showRetry && (
+            <button type="button" className="reload-button retry-button" ref={retryButtonRef}
+              aria-disabled={retrying} onClick={() => { if (!retrying) retry() }}>
+              Riprova
+            </button>
           )}
 
           {simulation && 'error' in simulation && <p className="status error">{simulation.error}</p>}

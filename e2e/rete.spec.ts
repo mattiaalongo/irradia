@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect, test, type PvgisMock } from './fixtures'
 import {
-  DEBOUNCE_MS, ETICHETTE, MILANO, ROMA, avvio, campo, impostaPosizione, orologioFermo, sincronizza, slider, totale,
+  DEBOUNCE_MS, ETICHETTE, MILANO, ROMA, avvio, campo, contrasto, impostaPosizione, orologioFermo, sincronizza, slider, totale,
 } from './helpers'
 
 // Comportamento di rete dell'app: attesa prima del download, numero di richieste, errori.
@@ -108,11 +108,12 @@ test.describe('errori di PVGIS', () => {
   const scenari: { nome: string; attiva: (p: PvgisMock) => void; testo: RegExp; consoleAttesa: boolean; generico?: false }[] = [
     // Mare: testo dedicato, senza "HTTP 400" né inglese (issue #11).
     { nome: 'HTTP 400 in mare', attiva: (p) => p.fail(400, 'Location over the sea. Please, select another location'),
-      testo: /Il punto scelto risulta in mare.*Scegli un punto sulla terraferma\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
+      testo: /Per il punto scelto non ci sono dati: risulta in mare.*Scegli un punto sulla terraferma\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
     { nome: 'pagina HTML con codice 200 (firewall)', attiva: (p) => p.firewallHtml(),
       testo: /non leggibile come JSON/, consoleAttesa: false },
+    // Rete assente: stesso testo del servizio non raggiungibile (issue #21).
     { nome: 'rete assente', attiva: (p) => p.offline(),
-      testo: /Impossibile contattare PVGIS/, consoleAttesa: true },
+      testo: /Riprova tra qualche secondo\. I valori mostrati sono quelli della posizione precedente\./, consoleAttesa: true, generico: false },
     { nome: 'JSON malformato', attiva: (p) => p.malformedJson(),
       testo: /non leggibile come JSON/, consoleAttesa: false },
   ]
@@ -183,7 +184,7 @@ test.describe('errori di PVGIS', () => {
         return pvgis.count
       })
       .toBe(1)
-    await expect(page.getByRole('alert')).toContainText('Il punto scelto risulta in mare')
+    await expect(page.getByRole('alert')).toContainText('risulta in mare')
     await expect(totale(page)).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('NaN')
   })
@@ -334,4 +335,275 @@ test.describe('riepilogo dell\'impianto coerente in ogni istante (issue #15)', (
       expect(incoerenti(registrati), `stati registrati: ${JSON.stringify(registrati)}`).toEqual([])
     })
   }
+})
+
+// Issue #21: con la connessione a PVGIS caduta l'intermediario risponde 502/503/504 senza JSON
+// (il proxy di Vite: 502, text/plain, corpo vuoto). L'avviso deve dire che il problema è
+// temporaneo, senza "HTTP", "JSON" né "PVGIS" e senza NaN.
+test.describe('servizio non raggiungibile (issue #21)', () => {
+  const TEMPORANEO =
+    'I dati non sono disponibili in questo momento: può essere un problema temporaneo del servizio o della connessione a Internet. Riprova tra qualche secondo.'
+  const PRECEDENTE = 'I valori mostrati sono quelli della posizione precedente.'
+  const barra = (page: Page) => page.getByTestId('sticky-total')
+
+  /** Primo caricamento senza risposta valida: aspetta che parta l'unica richiesta. */
+  async function primoCaricamento(page: Page, pvgis: PvgisMock): Promise<void> {
+    await page.goto('/')
+    await expect(campo(page, ETICHETTE.lat)).toBeVisible()
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(DEBOUNCE_MS)
+        return pvgis.count
+      })
+      .toBe(1)
+  }
+
+  const casi = [
+    { nome: '502 vuoto text/plain (proxy di Vite)', status: 502, body: '', contentType: 'text/plain' },
+    { nome: '503 pagina HTML', status: 503, body: '<html><body><h1>503 Service Unavailable</h1></body></html>', contentType: 'text/html' },
+    { nome: '504 vuoto', status: 504, body: '', contentType: 'text/plain' },
+  ]
+
+  for (const c of casi) {
+    test(`${c.nome}: avviso "riprova", risultato precedente invariato`, async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      const totalePrima = await totale(page).innerText()
+
+      pvgis.gatewayError(c.status, c.body, c.contentType)
+      await impostaPosizione(page, MILANO.lat, MILANO.lon)
+      await page.clock.runFor(DEBOUNCE_MS)
+
+      const avviso = page.getByRole('alert')
+      await expect(avviso).toHaveCount(1)
+      await expect(avviso).toHaveText(`${TEMPORANEO} ${PRECEDENTE}`)
+      await expect(avviso).not.toContainText(/HTTP|JSON|PVGIS|\d{3}/)
+      await expect(page.locator('body')).not.toContainText('NaN')
+      expect(await totale(page).innerText()).toBe(totalePrima)
+      await expect(page.getByRole('region', { name: 'Risultati' })).toHaveAttribute('aria-busy', 'false')
+    })
+  }
+
+  test('502 al primo caricamento: avviso senza frase sulla posizione precedente, nessun totale', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await orologioFermo(page)
+    pvgis.gatewayError(502)
+    await primoCaricamento(page, pvgis)
+    await expect(page.getByRole('alert')).toHaveText(TEMPORANEO)
+    await expect(totale(page)).toHaveCount(0)
+    await expect(page.locator('body')).not.toContainText('NaN')
+  })
+
+  for (const s of [
+    { nome: 'pagina HTML con codice 200 (firewall)', attiva: (p: PvgisMock) => p.firewallHtml() },
+    { nome: 'JSON malformato con codice 200', attiva: (p: PvgisMock) => p.malformedJson() },
+  ]) {
+    test(`${s.nome}: resta il testo generico, non "riprova"`, async ({ page, pvgis }) => {
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      s.attiva(pvgis)
+      await impostaPosizione(page, MILANO.lat, MILANO.lon)
+      await page.clock.runFor(DEBOUNCE_MS)
+      const avviso = page.getByRole('alert')
+      await expect(avviso).toContainText('Dati non disponibili per questa posizione.')
+      await expect(avviso).toContainText('non leggibile come JSON')
+      await expect(avviso).not.toContainText('Riprova')
+    })
+  }
+
+  test.describe('barra fissa del telefono', () => {
+    test.use({ viewport: { width: 390, height: 800 } })
+
+    test('502 con risultato precedente: "Dati non disponibili ora" e il numero vecchio', async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      pvgis.gatewayError(502)
+      await impostaPosizione(page, MILANO.lat, MILANO.lon)
+      await page.clock.runFor(DEBOUNCE_MS)
+      await expect(page.getByRole('alert')).toBeVisible()
+      await expect(barra(page)).toContainText('Dati non disponibili ora')
+      await expect(barra(page)).toContainText('kWh')
+      await expect(barra(page)).not.toContainText(/NaN|HTTP|Aggiorno/)
+    })
+
+    test('504 al primo caricamento: "Dati non disponibili ora", nessun numero', async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      pvgis.gatewayError(504)
+      await primoCaricamento(page, pvgis)
+      await expect(barra(page)).toContainText('Dati non disponibili ora')
+      await expect(barra(page)).not.toContainText(/kWh|NaN|HTTP/)
+    })
+  })
+})
+
+// Issue #21, decisione D2 del PO: pulsante "Riprova" per gli errori temporanei (servizio o rete).
+test.describe('pulsante "Riprova" (issue #21)', () => {
+  const riprova = (page: Page) => page.getByRole('button', { name: 'Riprova', exact: true })
+  const risultati = (page: Page) => page.getByRole('region', { name: 'Risultati' })
+  const focusSuBody = (page: Page) => page.evaluate(() => document.activeElement === document.body || document.activeElement === null)
+
+  /** Roma caricata, poi Milano con lo scenario d'errore attivo: l'avviso è visibile. */
+  async function conErrore(page: Page, pvgis: PvgisMock, attiva: (p: PvgisMock) => void): Promise<void> {
+    await orologioFermo(page)
+    await avvio(page, pvgis)
+    attiva(pvgis)
+    await impostaPosizione(page, MILANO.lat, MILANO.lon)
+    await page.clock.runFor(DEBOUNCE_MS)
+    await expect(page.getByRole('alert')).toBeVisible()
+  }
+
+  test('502: un clic = +1 richiesta (anche con due clic rapidi), poi avviso e pulsante spariscono, focus sui risultati', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await conErrore(page, pvgis, (p) => p.gatewayError(502))
+    const prima = pvgis.count
+    const richiesteNuove = () => pvgis.requests.slice(prima)
+
+    // Il pulsante è fuori dall'avviso.
+    await expect(page.getByRole('alert').getByRole('button')).toHaveCount(0)
+    await expect(riprova(page)).toBeVisible()
+    await expect(riprova(page)).toHaveAttribute('aria-disabled', 'false')
+
+    // Risposta tenuta in sospeso: si vede lo stato "in corso" e il doppio clic non raddoppia.
+    const gate = pvgis.hold()
+    // Da tastiera: dall'ultimo campo dei parametri, Tab porta al pulsante; Invio lo attiva.
+    await campo(page, ETICHETTE.perdite).focus()
+    await page.keyboard.press('Tab')
+    await expect(riprova(page)).toBeFocused()
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Enter') // secondo attivamento rapido: ignorato
+    await expect(riprova(page)).toHaveAttribute('aria-disabled', 'true')
+    await expect(riprova(page)).toBeFocused()
+    expect(await focusSuBody(page)).toBe(false)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect.poll(() => richiesteNuove().length).toBe(1)
+    // Nessuna attesa di 0,8 s: la richiesta è già partita con l'orologio fermo.
+    await page.clock.runFor(10_000)
+    await sincronizza(page)
+    expect(richiesteNuove().length).toBe(1)
+    expect(richiesteNuove()[0]).toMatchObject({ lat: 45.4642, lon: 9.19 })
+
+    // Anche un clic del mouse mentre è disattivato non fa nulla.
+    await riprova(page).dblclick({ force: true })
+    await sincronizza(page)
+    expect(richiesteNuove().length).toBe(1)
+
+    gate.release()
+    await expect(riprova(page)).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(totale(page)).toContainText('kWh')
+    // Il pulsante aveva il focus ed è sparito: il focus passa ai risultati, non a <body>.
+    await expect(risultati(page)).toBeFocused()
+    expect(await focusSuBody(page)).toBe(false)
+    expect(richiesteNuove().length).toBe(1)
+  })
+
+  test('due clic rapidi del mouse: una sola richiesta', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await conErrore(page, pvgis, (p) => p.gatewayError(503, '', 'text/html'))
+    const prima = pvgis.count
+    pvgis.useDefault()
+    await riprova(page).dblclick({ force: true })
+    await expect(riprova(page)).toHaveCount(0)
+    await expect(totale(page)).toContainText('kWh')
+    expect(pvgis.count).toBe(prima + 1)
+  })
+
+  test('se anche il secondo tentativo fallisce: l\'avviso resta e "Riprova" torna attivo, focus sul pulsante', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await conErrore(page, pvgis, (p) => p.gatewayError(502))
+    const prima = pvgis.count
+    await riprova(page).focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => pvgis.count).toBe(prima + 1)
+    await expect(page.getByRole('alert')).toHaveCount(1)
+    await expect(page.getByRole('alert')).toContainText('I dati non sono disponibili in questo momento')
+    await expect(riprova(page)).toHaveAttribute('aria-disabled', 'false')
+    await expect(riprova(page)).toBeFocused()
+    expect(await focusSuBody(page)).toBe(false)
+
+    // Terzo tentativo, questa volta riuscito.
+    pvgis.useDefault()
+    await page.keyboard.press('Enter')
+    await expect(riprova(page)).toHaveCount(0)
+    await expect(risultati(page)).toBeFocused()
+    expect(pvgis.count).toBe(prima + 2)
+  })
+
+  test('rete assente: "Riprova" presente', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await conErrore(page, pvgis, (p) => p.offline())
+    await expect(riprova(page)).toBeVisible()
+    pvgis.useDefault()
+    await riprova(page).click()
+    await expect(riprova(page)).toHaveCount(0)
+    await expect(totale(page)).toContainText('kWh')
+  })
+
+  test('primo caricamento fallito senza risultato precedente: "Riprova" presente e funziona', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await orologioFermo(page)
+    pvgis.gatewayError(504)
+    await page.goto('/')
+    await expect.poll(async () => { await page.clock.runFor(DEBOUNCE_MS); return pvgis.count }).toBe(1)
+    await expect(riprova(page)).toBeVisible()
+    pvgis.useDefault()
+    await riprova(page).click()
+    await expect(totale(page)).toContainText('kWh')
+    await expect(riprova(page)).toHaveCount(0)
+  })
+
+  const senzaPulsante: { nome: string; attiva: (p: PvgisMock) => void; console: boolean }[] = [
+    { nome: 'mare', attiva: (p) => p.fail(400, 'Location over the sea. Please, select another location'), console: true },
+    { nome: 'fuori zona', attiva: (p) => p.fail(400, 'Location out of the spatial coverage of PVGIS5'), console: true },
+    { nome: 'firewall (HTML con codice 200)', attiva: (p) => p.firewallHtml(), console: false },
+    { nome: 'JSON malformato', attiva: (p) => p.malformedJson(), console: false },
+  ]
+  for (const c of senzaPulsante) {
+    test(`${c.nome}: nessun "Riprova"`, async ({ page, pvgis, consoleGuard }) => {
+      if (c.console) consoleGuard.allow(/Failed to load resource/)
+      await conErrore(page, pvgis, c.attiva)
+      await expect(riprova(page)).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /riprova/i })).toHaveCount(0)
+    })
+  }
+
+  test('anello di focus del pulsante: contrasto >= 3 nel tema chiaro e scuro', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await conErrore(page, pvgis, (p) => p.gatewayError(502))
+    for (const tema of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: tema })
+      await campo(page, ETICHETTE.perdite).focus()
+      await page.keyboard.press('Tab')
+      await expect(riprova(page)).toBeFocused()
+      const d = await riprova(page).evaluate((b) => {
+        const s = getComputedStyle(b)
+        return { colore: s.outlineColor, stile: s.outlineStyle, spessore: parseFloat(s.outlineWidth), sfondo: getComputedStyle(document.body).backgroundColor }
+      })
+      expect(d.stile, tema).toBe('solid')
+      expect(d.spessore, tema).toBeGreaterThanOrEqual(2)
+      expect(contrasto(d.colore, d.sfondo), `${tema}: anello/sfondo`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  test.describe('telefono 390 px', () => {
+    test.use({ viewport: { width: 390, height: 800 } })
+
+    test('la barra fissa dice "Dati non disponibili ora" e non contiene elementi focalizzabili', async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await conErrore(page, pvgis, (p) => p.gatewayError(502))
+      const barra = page.getByTestId('sticky-total')
+      await expect(barra).toContainText('Dati non disponibili ora')
+      expect(
+        await barra.evaluate((el) => el.querySelectorAll('a[href], button, input, select, textarea, [tabindex]').length),
+      ).toBe(0)
+      await expect(riprova(page)).toHaveCount(1)
+      // Il pulsante nei risultati non finisce sotto la barra fissa quando si scorre fino a lui.
+      await riprova(page).scrollIntoViewIfNeeded()
+      const [r, b] = await Promise.all([riprova(page).boundingBox(), barra.boundingBox()])
+      expect(r!.y + r!.height).toBeLessThanOrEqual(b!.y)
+    })
+  })
 })
