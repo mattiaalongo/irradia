@@ -38,6 +38,25 @@ import { solarPosition } from './solarPosition'
 /** Perdite di sistema predefinite, %: lo stesso valore suggerito da PVGIS. */
 export const DEFAULT_SYSTEM_LOSS_PCT = 14
 
+/**
+ * Potenza di targa massima accettata per un singolo pannello, Wp (decisione del PO del 12/11/2026,
+ * issue #19). È un controllo di plausibilità, non un dato fisico: i moduli c-Si più potenti in
+ * commercio arrivano a circa 700-770 Wp (formato 210 mm, es. Trina Vertex N TSM-NEG21C.20Q,
+ * fascia 735-760 Wp: scheda tecnica trovata con una ricerca il 12/11/2026 ma NON letta, perché il sito
+ * del produttore non è raggiungibile dall'ambiente di sviluppo). Il valore è quindi motivato come
+ * margine sopra il limite dell'interfaccia (700 Wp, `App.tsx`) e sopra il campo di validità dei
+ * coefficienti di Huld (2011), ricavati su moduli c-Si di taglia normale.
+ */
+export const MAX_PANEL_POWER_WP = 1000
+
+/**
+ * Numero massimo di pannelli accettato (decisione del PO del 12/11/2026, issue #19): 1000 pannelli
+ * da 1000 Wp fanno 1 MWp, ben oltre qualunque tetto di casa, senza legare il motore al limite degli
+ * slider (50 pannelli). Serve a escludere valori assurdi (es. 1e300) che porterebbero a risultati
+ * infiniti o NaN.
+ */
+export const MAX_PANEL_COUNT = 1000
+
 export interface PvSystem {
   /** Inclinazione dei pannelli, gradi: 0 = piatti, 90 = verticali. */
   tiltDeg: number
@@ -89,10 +108,14 @@ function validateSystem(system: PvSystem): void {
   const loss = system.systemLossPct ?? DEFAULT_SYSTEM_LOSS_PCT
   if (!(tiltDeg >= 0 && tiltDeg <= 90)) throw new RangeError('Inclinazione fuori da [0, 90]')
   if (!(azimuthDeg >= 0 && azimuthDeg < 360)) throw new RangeError('Azimut fuori da [0, 360)')
-  if (!(Number.isInteger(panelCount) && panelCount >= 0)) {
-    throw new RangeError('Il numero di pannelli deve essere un intero ≥ 0')
+  // Number.isInteger è false per NaN e ±Infinity: i valori non finiti sono già esclusi.
+  if (!(Number.isInteger(panelCount) && panelCount >= 0 && panelCount <= MAX_PANEL_COUNT)) {
+    throw new RangeError(`Il numero di pannelli deve essere un intero in [0, ${MAX_PANEL_COUNT}]`)
   }
-  if (!(panelPowerWp >= 0)) throw new RangeError('La potenza di un pannello deve essere ≥ 0')
+  // Il confronto con il massimo esclude anche +Infinity; NaN fallisce ogni confronto.
+  if (!(panelPowerWp >= 0 && panelPowerWp <= MAX_PANEL_POWER_WP)) {
+    throw new RangeError(`La potenza di un pannello deve essere in [0, ${MAX_PANEL_POWER_WP}] Wp`)
+  }
   if (!(loss >= 0 && loss < 100)) throw new RangeError('Perdite di sistema fuori da [0, 100)')
 }
 
