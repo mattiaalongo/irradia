@@ -131,7 +131,7 @@ e2e/           Prove nel browser (Playwright) con PVGIS e tessere OSM simulati.
     *.spec.ts      calcolo, rete (attesa, memoria, errori), campi e tastiera, impaginazione,
                    barra fissa, mappa. Con l'orologio fermo (`page.clock`) anche le animazioni di
                    Leaflet e il caricamento differito avanzano solo facendo correre l'orologio.
-playwright.config.ts  Solo Chromium, contro la build di produzione (`vite preview`, porta 4173).
+playwright.config.ts  Solo Chromium, contro la build di produzione (`vite preview`, porta 4173 o `PW_PORT`).
 .github/       CI (workflows/ci.yml), Dependabot, modelli di issue e di PR.
 ```
 
@@ -174,6 +174,8 @@ npm run build      # controllo dei tipi + build di produzione in dist/
 npm run size       # dopo la build: controlla il JS iniziale (gzip) contro il limite
 npm run test:e2e   # prove nel browser (Playwright); nel cloud anteporre
                    # PW_CHROMIUM_PATH=/opt/pw-browsers/chromium (browser preinstallato)
+                   # Porta di `vite preview`: PW_PORT (1024-65535, predefinita 4173); con più copie
+                   # di lavoro in parallelo ognuna usa la sua (es. PW_PORT=4801 npm run test:e2e)
 FC_SEED=123 npm test  # proprietà fast-check con un altro seme (solo per esplorare)
 ```
 
@@ -314,6 +316,7 @@ del tester; questa regola fa sì che una PR "pronta" significhi "provata anche n
 | **Solo Chromium** (decisione del PO dell'8/11/2026) | WebKit di Playwright su Linux non è il Safari dell'iPhone; da rivalutare nella fase mobile con Firefox. I telefoni si simulano con le dimensioni dello schermo (360/390/412 px). |
 | Prove nel browser **senza attese fisse** e **senza nuovi tentativi** (`retries: 0`); orologio controllato (`page.clock`) per l'attesa di 0,8 s; lingua `it-IT` e fuso `Europe/Rome` fissi | Un nuovo tentativo automatico nasconderebbe l'instabilità. Collaudo: 5 esecuzioni consecutive tutte verdi (410/410). |
 | **Niente confronto automatico di screenshot** | I caratteri di Linux (CI) e Windows (PC del PO) differiscono: le immagini di riferimento andrebbero rifatte spesso. Il giudizio visivo resta in `/prova-locale`. |
+| Prove nel browser: **porta di `vite preview` da `PW_PORT`** (intero 1024-65535, predefinita 4173, valore non valido = errore chiaro) usata da `webServer` e `baseURL`; **`reuseExistingServer: false` sempre**, con `--strictPort` (issue #46) | Con `reuseExistingServer: true` in locale, una copia di lavoro riusava il server acceso da un'altra e provava un altro ramo senza alcun errore (verde falso). Ora una porta occupata fa fallire subito l'avvio con messaggio chiaro; per esecuzioni in parallelo basta una porta diversa per copia. Collaudo: due esecuzioni in parallelo su porte diverse verdi; porta occupata = errore "already used". Scartati: riuso del server (il difetto stesso), porta casuale (non riproducibile, `baseURL` e log meno leggibili, richiede un passaggio di valori fra processi). |
 | Nel cloud le prove usano il **Chromium preinstallato** (`PW_CHROMIUM_PATH=/opt/pw-browsers/chromium`), nella CI `playwright install --only-shell chromium` | Nel cloud non si scarica nulla; nella CI la versione del browser segue quella di `@playwright/test` nel lock. Niente cache del browser nella CI (la documentazione di Playwright la sconsiglia). |
 | Proprietà con **fast-check**, **seme fisso** 20261108 (`src/test/fastCheckSetup.ts`), numero di casi scelto in ogni test; `FC_SEED` per esplorare in locale; ogni controesempio diventa un caso fisso | Le prove su input casuali restano deterministiche e riproducibili. Scartato `@fast-check/vitest`: una dipendenza in più senza vantaggi reali. |
 | Difetti noti dei casi estremi trovati con fast-check (irradianza denormale, potenza infinita, scala del grafico con valori estremi), prima documentati come **fallimenti attesi** (`it.fails`), **corretti** (#19, decisione del PO del 12/11/2026): Huld usa ln G − ln 1000 solo quando G/1000 va a 0 (risultato identico bit per bit negli altri casi) e `huldDcPower` rifiuta una potenza non finita; il motore accetta al massimo **1000 Wp per pannello** (`MAX_PANEL_POWER_WP`) e **1000 pannelli** (`MAX_PANEL_COUNT`), altrimenti `RangeError`; `niceScale` non lancia mai eccezioni (passo 0 per underflow → scala 0-1, tacche oltre `Number.MAX_VALUE` → un solo intervallo da 0 al massimo). Ora sono prove normali. Un nuovo difetto non raggiungibile dall'interfaccia si documenta di nuovo con `it.fails` | Non raggiungibili dall'interfaccia, ma un motore riusato (app mobile) non deve dare NaN in silenzio. 1000 Wp: margine sopra i moduli più potenti in commercio (~700-770 Wp) e sopra il limite dell'interfaccia (700 Wp); 1000 pannelli (1 MWp) superano qualsiasi tetto senza legare il motore agli slider (50). Nessuna eccezione nel grafico: farebbe scattare la barriera d'errore. |
