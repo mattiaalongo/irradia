@@ -269,3 +269,69 @@ test.describe('risposta lenta', () => {
     await expect(risultati).toHaveAttribute('aria-busy', 'false')
   })
 })
+
+// Issue #15 / #14 punto 1: il riepilogo "Impianto da X kWp (N × P Wp)" non deve MAI assumere,
+// nemmeno per un istante, un testo in cui kWp ≠ N × P / 1000 (React scrive prima i campi nuovi
+// e poi il risultato differito: si vedrebbero kWp vecchi con N e P nuovi).
+// Un MutationObserver nella pagina registra ogni testo assunto dal riepilogo.
+test.describe('riepilogo dell\'impianto coerente in ogni istante (issue #15)', () => {
+  async function installaOsservatore(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const w = window as unknown as { __riepiloghi: string[] }
+      w.__riepiloghi = []
+      const gruppo = document.querySelector('[role="group"][aria-labelledby]')
+      if (!gruppo) throw new Error('gruppo del totale non trovato')
+      const leggi = () => {
+        const t = gruppo.querySelector('.hero-detail')?.textContent ?? ''
+        if (w.__riepiloghi.at(-1) !== t) w.__riepiloghi.push(t)
+      }
+      leggi()
+      new MutationObserver(leggi).observe(gruppo, { subtree: true, childList: true, characterData: true, attributes: true })
+    })
+  }
+
+  async function stati(page: Page): Promise<string[]> {
+    return page.evaluate(() => (window as unknown as { __riepiloghi: string[] }).__riepiloghi)
+  }
+
+  function incoerenti(testi: string[]): string[] {
+    return testi.filter((t) => {
+      const m = /Impianto da ([\d.]+,\d{2}) kWp \((\d+) × (\d+) Wp\)/.exec(t.replace(/\s+/g, ' '))
+      if (!m) return true
+      const kwp = Number(m[1].replace(/\./g, '').replace(',', '.'))
+      return kwp.toFixed(2) !== ((Number(m[2]) * Number(m[3])) / 1000).toFixed(2)
+    })
+  }
+
+  for (const inErrore of [false, true]) {
+    test(`ogni testo del riepilogo è coerente, PVGIS ${inErrore ? 'in errore (mare, HTTP 400)' : 'funzionante'}`, async ({ page, pvgis, consoleGuard }) => {
+      if (inErrore) consoleGuard.allow(/Failed to load resource/)
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      await expect(totale(page)).toContainText('Impianto da 4,30 kWp (10 × 430 Wp)')
+      if (inErrore) {
+        pvgis.fail(400, 'Location over the sea')
+        await impostaPosizione(page, MILANO.lat, MILANO.lon)
+        await page.clock.runFor(DEBOUNCE_MS)
+        await expect(page.getByRole('alert')).toBeVisible()
+      }
+      await installaOsservatore(page)
+
+      await campo(page, ETICHETTE.potenza).fill('435')
+      await expect(totale(page)).toContainText('Impianto da 4,35 kWp (10 × 435 Wp)')
+      const s = slider(page, ETICHETTE.potenza)
+      await s.fill('500')
+      await expect(totale(page)).toContainText('(10 × 500 Wp)')
+      await s.press('ArrowLeft')
+      await s.press('ArrowRight')
+      await campo(page, ETICHETTE.pannelli).fill('20')
+      await expect(totale(page)).toContainText('Impianto da 10,00 kWp (20 × 500 Wp)')
+      await campo(page, ETICHETTE.pannelli).fill('7')
+      await expect(totale(page)).toContainText('Impianto da 3,50 kWp (7 × 500 Wp)')
+
+      const registrati = await stati(page)
+      expect(registrati.length).toBeGreaterThan(3)
+      expect(incoerenti(registrati), `stati registrati: ${JSON.stringify(registrati)}`).toEqual([])
+    })
+  }
+})

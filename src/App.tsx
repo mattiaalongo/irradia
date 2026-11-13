@@ -14,11 +14,19 @@ import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from './ui/map
 import { shadingNote } from './ui/sourceNote'
 import { useTmy } from './ui/useTmy'
 
-/** Simula l'anno; restituisce un messaggio invece di bloccare la pagina se il motore rifiuta i parametri. */
-function runSimulation(tmy: Tmy | null, system: PvSystem): { year: YearResult } | { error: string } | null {
+/**
+ * Simula l'anno; restituisce un messaggio invece di bloccare la pagina se il motore rifiuta i parametri.
+ * Il risultato porta con sé i parametri dell'impianto con cui è stato calcolato (`system`): il calcolo
+ * resta un attimo indietro rispetto allo stato immediato degli slider, quindi chi mostra il riepilogo
+ * (kWp, numero e potenza dei pannelli) deve leggere tutto da qui, mai dallo stato immediato (issue #15).
+ */
+function runSimulation(
+  tmy: Tmy | null,
+  system: PvSystem,
+): { year: YearResult; system: PvSystem } | { error: string } | null {
   if (!tmy) return null
   try {
-    return { year: simulateYear(tmy, system) }
+    return { year: simulateYear(tmy, system), system }
   } catch (err) {
     return { error: (err as Error).message }
   }
@@ -114,8 +122,8 @@ export default function App() {
               <AnnualTotal
                 annualKwh={simulation.year.annualKwh}
                 peakPowerKwp={simulation.year.peakPowerKwp}
-                panelCount={panelCount}
-                panelPowerWp={panelPowerWp}
+                panelCount={simulation.system.panelCount}
+                panelPowerWp={simulation.system.panelPowerWp}
               />
 
               <h2>Produzione mese per mese (kWh)</h2>
