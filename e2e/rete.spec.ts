@@ -159,6 +159,14 @@ test.describe('errori di PVGIS', () => {
     await impostaPosizione(page, MILANO.lat, MILANO.lon)
     await page.clock.runFor(DEBOUNCE_MS)
     await expect(page.getByRole('alert')).toBeVisible()
+    // Il dettaglio è accorciato a 300 caratteri + "…" (decisione del PO del 13/11/2026, #47):
+    // prima finivano nella pagina tutti i 5 MB e la prova sfiorava il timeout. Il "…" chiude il
+    // dettaglio, non l'avviso: dopo può seguire la frase sui valori della posizione precedente.
+    const testo = (await page.getByRole('alert').textContent()) ?? ''
+    expect(testo.length).toBeLessThan(1000)
+    expect(testo).toMatch(MSG)
+    expect(testo).toMatch(/x\u2026(\s|$)/)
+    expect(testo).not.toContain('x'.repeat(301))
     await expect(campo(page, ETICHETTE.pannelli)).toBeEditable()
   })
 
