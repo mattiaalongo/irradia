@@ -78,7 +78,7 @@ export default function MonthlyChart({ monthlyKwh }: MonthlyChartProps) {
           {/* Griglia e valori dell'asse verticale */}
           {scale.ticks.map((t) => (
             <g key={t}>
-              <line className="chart-grid" x1={MARGIN.left} x2={WIDTH - MARGIN.right} y1={yOf(t)} y2={yOf(t)} />
+              <line className={t === 0 ? 'chart-grid chart-grid-zero' : 'chart-grid'} x1={MARGIN.left} x2={WIDTH - MARGIN.right} y1={yOf(t)} y2={yOf(t)} />
               <text className="chart-tick" x={MARGIN.left - 8} y={yOf(t)} textAnchor="end" dominantBaseline="middle">
                 {formatNumber(t)}
               </text>

@@ -22,8 +22,9 @@ import { gzipSync } from 'node:zlib'
 // Limite del JS iniziale, in kB (1 kB = 1000 byte), gzip livello 6.
 // UNICO posto in cui vive questo numero. Storia: alzato da 80 a 82 l'11/11/2026
 // con #26 (decisione del PO); confermato il 12/11/2026 con #37, misurato con
-// gzip di Node (~1 % sotto il numero di Vite). Per cambiarlo serve il PO.
-export const INITIAL_JS_LIMIT_KB = 82
+// gzip di Node (~1 % sotto il numero di Vite); alzato da 82 a 85 il 14/11/2026
+// con il nuovo aspetto (#56, decisione del PO). Per cambiarlo serve il PO.
+export const INITIAL_JS_LIMIT_KB = 85
 
 /** Attributi di un tag, con nomi in minuscolo; accetta "doppi", 'singoli' o senza apici. */
 function parseAttributes(tag: string): Map<string, string> {
