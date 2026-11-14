@@ -1,0 +1,285 @@
+import type { Locator, Page } from '@playwright/test'
+import { expect, test, type PvgisMock } from './fixtures'
+// Testo approvato dal PO il 14/11/2026 (STALE_LABEL in src/ui/StaleResults.tsx): copiato qui di proposito,
+// così un cambio accidentale del testo fa fallire la prova (e tsc non importa il .tsx da e2e/).
+const STALE_LABEL = 'Valori della posizione precedente'
+import { DEBOUNCE_MS, MILANO, ROMA, avvio, contrasto, impostaPosizione, orologioFermo } from './helpers'
+
+// Risultati "non aggiornati" (issue #42): niente opacità, cornice tratteggiata, etichetta, totale in --muted.
+// Si prova in attesa di 0,8 s, download in sospeso ed errore (mare, HTTP 400), in tema chiaro e scuro,
+// a 1280 e 360 px; più forced-colors. Tutti i contrasti si calcolano dai colori calcolati dal browser.
+
+const blocco = (page: Page): Locator => page.locator('.stale-results')
+const etichetta = (page: Page): Locator => page.getByText(STALE_LABEL, { exact: true })
+const SEA = 'Location over the sea. Please, select another location'
+
+type Stato = 'attesa' | 'download' | 'errore'
+const STATI: Stato[] = ['attesa', 'download', 'errore']
+
+/** Porta la pagina nello stato non aggiornato richiesto, a partire dal risultato di Roma (già caricato con `avvio`). Restituisce lo sblocco. */
+async function vaiANonAggiornato(page: Page, pvgis: PvgisMock, stato: Stato): Promise<() => void> {
+  let release = () => {}
+  if (stato === 'errore') pvgis.fail(400, SEA)
+  else if (stato === 'download') release = pvgis.hold().release
+  await impostaPosizione(page, MILANO.lat, MILANO.lon)
+  if (stato !== 'attesa') {
+    await page.clock.runFor(DEBOUNCE_MS)
+    await expect.poll(() => pvgis.count).toBe(2)
+  }
+  if (stato === 'errore') await expect(page.getByRole('alert')).toBeVisible()
+  await expect(blocco(page)).toHaveClass(/is-stale/)
+  return release
+}
+
+interface Misure {
+  opacitaMax: number // minimo dell'opacità cumulativa
+  testi: { nome: string; contrasto: number }[]
+}
+
+/** Opacità cumulativa e contrasto di ogni testo visibile nel blocco, sui colori calcolati. */
+async function misura(page: Page): Promise<Misure> {
+  const raw = await blocco(page).evaluate((root) => {
+    const sfondoEffettivo = (el: Element): string => {
+      for (let e: Element | null = el; e; e = e.parentElement) {
+        const bg = getComputedStyle(e).backgroundColor
+        if (!/rgba?\(.*,\s*0\)$/.test(bg) && bg !== 'transparent') return bg
+      }
+      return getComputedStyle(document.body).backgroundColor
+    }
+    const opacita = (el: Element): number => {
+      let o = 1
+      for (let e: Element | null = el; e; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity)
+      return o
+    }
+    const tutti = [root, ...root.querySelectorAll('*')]
+    const minOp = Math.min(...tutti.map(opacita))
+    const testi: { nome: string; fg: string; bg: string }[] = []
+    for (const el of tutti) {
+      const diretto = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim() !== '')
+      if (!diretto) continue
+      if (el.getClientRects().length === 0 && !(el instanceof SVGElement)) continue // nascosto (details chiuso)
+      const s = getComputedStyle(el)
+      if (s.visibility === 'hidden' || s.display === 'none') continue
+      const fg = el instanceof SVGElement ? s.fill : s.color
+      testi.push({ nome: `${el.tagName.toLowerCase()}.${el.getAttribute('class') ?? ''} "${el.textContent!.trim().slice(0, 25)}"`, fg, bg: sfondoEffettivo(el) })
+    }
+    return { minOp, testi }
+  })
+  return {
+    opacitaMax: raw.minOp,
+    testi: raw.testi.map((t) => ({ nome: t.nome, contrasto: contrasto(t.fg, t.bg) })),
+  }
+}
+
+const stileBlocco = (page: Page) =>
+  blocco(page).evaluate((el) => {
+    const s = getComputedStyle(el)
+    const sonda = (v: string) => {
+      const x = document.createElement('span')
+      x.style.color = v
+      document.body.append(x)
+      const c = getComputedStyle(x).color
+      x.remove()
+      return c
+    }
+    return {
+      stile: s.borderTopStyle, larghezza: parseFloat(s.borderTopWidth), colore: s.borderTopColor,
+      sfondo: getComputedStyle(document.body).backgroundColor, muted: sonda('var(--muted)'), fg: sonda('var(--fg)'),
+    }
+  })
+
+const coloreBarre = (page: Page) =>
+  page.locator('.chart-bar-fill').first().evaluate((el) => {
+    const s = getComputedStyle(el)
+    return { fill: s.fill, opacity: s.opacity }
+  })
+
+const offsetHero = (page: Page) =>
+  page.evaluate(() => {
+    const b = document.querySelector('.stale-results')!.getBoundingClientRect()
+    const h = document.querySelector('.stale-results .hero')!.getBoundingClientRect()
+    return h.top - b.top
+  })
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const larghezza of [1280, 360]) {
+    test.describe(`tema ${colorScheme}, ${larghezza} px`, () => {
+      test.beforeEach(async ({ page, consoleGuard }) => {
+        consoleGuard.allow(/Failed to load resource/)
+        await page.emulateMedia({ colorScheme })
+        await page.setViewportSize({ width: larghezza, height: 900 })
+        await orologioFermo(page)
+      })
+
+      for (const stato of STATI) {
+        test(`${stato}: opacità 1, contrasto testi, cornice, barre, etichetta, posizione`, async ({ page, pvgis }) => {
+          await avvio(page, pvgis)
+          const pronto = { misure: await misura(page), barre: await coloreBarre(page), hero: await offsetHero(page), stile: await stileBlocco(page) }
+          expect(pronto.stile.colore, 'pronto: cornice trasparente').toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
+          await expect(etichetta(page)).toHaveCount(0)
+
+          const release = await vaiANonAggiornato(page, pvgis, stato)
+          await expect(etichetta(page)).toHaveCount(1)
+          await expect(etichetta(page)).toBeVisible()
+
+          // 1. opacità cumulativa
+          const m = await misura(page)
+          expect(m.opacitaMax, 'opacità cumulativa minima').toBe(1)
+          // 2. contrasto di ogni testo (compresi totale grigio ed etichetta)
+          expect(m.testi.length).toBeGreaterThan(5)
+          for (const t of m.testi) expect(t.contrasto, t.nome).toBeGreaterThanOrEqual(4.5)
+          const lab = m.testi.find((t) => t.nome.includes('stale-label'))
+          expect(lab, 'etichetta tra i testi controllati').toBeDefined()
+          expect(m.testi.find((t) => t.nome.startsWith('p.hero"') || t.nome.includes('hero'))).toBeDefined()
+          // 3. barre invariate
+          expect(await coloreBarre(page)).toEqual(pronto.barre)
+          // 5. cornice
+          const st = await stileBlocco(page)
+          expect(st.stile).toBe('dashed')
+          expect(st.larghezza).toBeGreaterThanOrEqual(2)
+          expect(st.colore).toBe(st.muted)
+          expect(contrasto(st.colore, st.sfondo), 'cornice/sfondo').toBeGreaterThanOrEqual(3)
+          // 6. nessuno spostamento del totale dentro il blocco
+          expect(Math.abs((await offsetHero(page)) - pronto.hero)).toBeLessThanOrEqual(1)
+          // etichetta: non sovrapposta alla prima riga, dentro la pagina
+          const [bl, bh] = await Promise.all([etichetta(page).boundingBox(), page.locator('.stale-results .hero-label').boundingBox()])
+          expect(bl!.y + bl!.height, 'etichetta sopra la prima riga').toBeLessThanOrEqual(bh!.y + 1)
+          expect(bl!.x).toBeGreaterThanOrEqual(0)
+          expect(bl!.x + bl!.width).toBeLessThanOrEqual(larghezza)
+          // 7. non in regioni live / alert; una sola volta nell'albero di accessibilità
+          expect(await etichetta(page).evaluate((el) => !el.closest('[role="alert"],[role="status"],[aria-live]'))).toBe(true)
+          expect(((await page.locator('main').ariaSnapshot()).match(new RegExp(STALE_LABEL, 'g')) ?? []).length).toBe(1)
+
+          // ritorno dei dati: cornice trasparente, etichetta sparita
+          pvgis.useDefault()
+          release()
+          if (stato === 'errore') {
+            await page.getByLabel('Latitudine (Nord)', { exact: true }).fill(ROMA.lat)
+            await page.clock.runFor(DEBOUNCE_MS)
+          } else if (stato === 'attesa') {
+            await page.clock.runFor(DEBOUNCE_MS)
+          }
+          await expect(blocco(page)).not.toHaveClass(/is-stale/)
+          await expect(etichetta(page)).toHaveCount(0)
+          expect((await stileBlocco(page)).colore).toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
+          expect(Math.abs((await offsetHero(page)) - pronto.hero)).toBeLessThanOrEqual(1)
+        })
+      }
+
+      test('anello di focus del grafico (Tab) ≥ 3:1 mentre non aggiornato', async ({ page, pvgis }) => {
+        await avvio(page, pvgis)
+        await vaiANonAggiornato(page, pvgis, 'errore')
+        const prima = page.locator('g.chart-bar[data-month="1"]')
+        await page.getByRole('heading', { name: 'Produzione mese per mese (kWh)' }).focus().catch(() => {})
+        await prima.focus()
+        await page.keyboard.press('Tab')
+        const seconda = page.locator('g.chart-bar[data-month="2"]')
+        await expect(seconda).toBeFocused()
+        const d = await seconda.evaluate((g) => {
+          const s = getComputedStyle(g.querySelector('.chart-focus')!)
+          return { display: s.display, stroke: s.stroke, w: parseFloat(s.strokeWidth), op: s.opacity, bg: getComputedStyle(document.body).backgroundColor }
+        })
+        expect(d.display).not.toBe('none')
+        expect(d.w).toBeGreaterThanOrEqual(2)
+        expect(d.op).toBe('1')
+        expect(contrasto(d.stroke, d.bg)).toBeGreaterThanOrEqual(3)
+      })
+    })
+  }
+}
+
+test.describe('sezione e barra fissa', () => {
+  test('la barra fissa resta aria-hidden e la cornice non compare nell’attesa di un punto in memoria', async ({ page, pvgis }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await orologioFermo(page)
+    await avvio(page, pvgis)
+    await expect(page.getByTestId('sticky-total')).toHaveAttribute('aria-hidden', 'true')
+    // Milano scaricata, poi ritorno a Roma (in memoria): nessuno stato non aggiornato.
+    await impostaPosizione(page, MILANO.lat, MILANO.lon)
+    await page.clock.runFor(DEBOUNCE_MS)
+    await expect(blocco(page)).not.toHaveClass(/is-stale/)
+    await expect.poll(() => pvgis.count).toBe(2)
+    await impostaPosizione(page, ROMA.lat, ROMA.lon)
+    await expect(blocco(page)).not.toHaveClass(/is-stale/)
+    await page.clock.runFor(DEBOUNCE_MS)
+    await expect(blocco(page)).not.toHaveClass(/is-stale/)
+    expect(pvgis.count).toBe(2)
+    await expect(etichetta(page)).toHaveCount(0)
+  })
+})
+
+test.describe('casi limite', () => {
+  test('cambi rapidi di posizione: una sola etichetta e una sola richiesta dopo l’attesa', async ({ page, pvgis }) => {
+    await orologioFermo(page)
+    await avvio(page, pvgis)
+    await impostaPosizione(page, MILANO.lat, MILANO.lon)
+    await page.clock.runFor(DEBOUNCE_MS / 2)
+    await impostaPosizione(page, '43,5', '10,3')
+    await expect(etichetta(page)).toHaveCount(1)
+    await page.clock.runFor(DEBOUNCE_MS / 2)
+    await expect(etichetta(page)).toHaveCount(1)
+    await page.clock.runFor(DEBOUNCE_MS)
+    await expect(etichetta(page)).toHaveCount(0)
+    expect(pvgis.count).toBe(2)
+  })
+
+  test('Riprova: l’etichetta resta durante il tentativo e sparisce al successo', async ({ page, pvgis, consoleGuard }) => {
+    consoleGuard.allow(/Failed to load resource/)
+    await orologioFermo(page)
+    await avvio(page, pvgis)
+    pvgis.use((route) => route.fulfill({ status: 502, contentType: 'text/plain', body: '' }))
+    await impostaPosizione(page, MILANO.lat, MILANO.lon)
+    await page.clock.runFor(DEBOUNCE_MS)
+    const riprova = page.getByRole('button', { name: 'Riprova' })
+    await expect(riprova).toBeVisible()
+    await expect(etichetta(page)).toHaveCount(1)
+    const rilascio = pvgis.hold()
+    await riprova.click()
+    await expect.poll(() => pvgis.count).toBe(3)
+    await expect(etichetta(page)).toHaveCount(1)
+    expect((await misura(page)).opacitaMax).toBe(1)
+    rilascio.release()
+    await expect(etichetta(page)).toHaveCount(0)
+  })
+
+  // Il CSS dell'etichetta è in px: lo zoom del solo testo non la cambia, quindi si prova la larghezza
+  // equivalente (reflow WCAG 1.4.10): 320 px e 280 px.
+  for (const larghezza of [320, 280]) {
+    test(`${larghezza} px: etichetta non sovrapposta alla prima riga e dentro la cornice`, async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await page.setViewportSize({ width: larghezza, height: 800 })
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      const larghezzaPronto = (await blocco(page).boundingBox())!.width
+      await vaiANonAggiornato(page, pvgis, 'download')
+      const [bl, hl, bb] = await Promise.all([
+        etichetta(page).boundingBox(), page.locator('.stale-results .hero-label').boundingBox(), blocco(page).boundingBox(),
+      ])
+      expect(bl!.y + bl!.height, 'etichetta sopra la prima riga').toBeLessThanOrEqual(hl!.y + 1)
+      expect(bl!.x).toBeGreaterThanOrEqual(bb!.x)
+      expect(bl!.x + bl!.width).toBeLessThanOrEqual(bb!.x + bb!.width)
+      // Nota: a 320 px la pagina ha già uno scorrimento orizzontale causato dalla sezione dei parametri
+      // (scrollWidth 341, anche senza stato non aggiornato): non dipende da #42. Qui si controlla
+      // solo che la cornice non allarghi il blocco.
+      expect(bb!.width, 'la cornice non cambia la larghezza del blocco').toBeCloseTo(larghezzaPronto, 0)
+    })
+  }
+})
+
+test.describe('forced-colors', () => {
+  for (const stato of STATI) {
+    test(`${stato}: cornice ancora tratteggiata e visibile, etichetta visibile`, async ({ page, pvgis, consoleGuard }) => {
+      consoleGuard.allow(/Failed to load resource/)
+      await page.emulateMedia({ forcedColors: 'active' })
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      await vaiANonAggiornato(page, pvgis, stato)
+      const st = await stileBlocco(page)
+      expect(st.stile).toBe('dashed')
+      expect(st.larghezza).toBeGreaterThanOrEqual(2)
+      expect(st.colore).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
+      await expect(etichetta(page)).toBeVisible()
+      expect((await misura(page)).opacitaMax).toBe(1)
+    })
+  }
+})

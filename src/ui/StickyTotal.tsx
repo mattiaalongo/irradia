@@ -23,8 +23,8 @@ export default function StickyTotal({ state }: { state: StickyTotalState }) {
     // L'avviso completo (role="alert") è nei risultati, spesso fuori schermo sul telefono.
     // Il testo breve (mare / fuori zona) non va mai a capo: semmai si stringe l'etichetta generica.
     else if (state.failed) label = state.shortError ? <span className="sticky-short">{state.shortError}</span> : 'Dati non aggiornati (errore)'
-    // Numero attenuato (colore secondario, contrasto ≥ 4,5:1) come il totale nei risultati
-    // (`.stale`): è il valore della posizione precedente.
+    // Numero in colore secondario (contrasto ≥ 4,5:1) come il totale nei risultati quando sono
+    // non aggiornati (`.stale-results.is-stale .hero`): è il valore della posizione precedente.
     body = (
       <span className={state.updating || state.failed ? 'sticky-old' : undefined}>
         {formatNumber(state.annualKwh)} <span className="sticky-unit">kWh</span>
