@@ -5,7 +5,7 @@ import { expect, test, type PvgisMock } from './fixtures'
 const STALE_LABEL = 'Valori della posizione precedente'
 import { DEBOUNCE_MS, MILANO, ROMA, avvio, contrasto, impostaPosizione, orologioFermo } from './helpers'
 
-// Risultati "non aggiornati" (issue #42): niente opacità, cornice tratteggiata, etichetta, totale in --muted.
+// Risultati "non aggiornati" (issue #42): niente opacità, cornice tratteggiata, etichetta, totale in --plate-mute (ex --muted).
 // Si prova in attesa di 0,8 s, download in sospeso ed errore (mare, HTTP 400), in tema chiaro e scuro,
 // a 1280 e 360 px; più forced-colors. Tutti i contrasti si calcolano dai colori calcolati dal browser.
 
@@ -84,7 +84,7 @@ const stileBlocco = (page: Page) =>
     }
     return {
       stile: s.borderTopStyle, larghezza: parseFloat(s.borderTopWidth), colore: s.borderTopColor,
-      sfondo: getComputedStyle(document.body).backgroundColor, muted: sonda('var(--muted)'), fg: sonda('var(--fg)'),
+      sfondo: getComputedStyle(document.body).backgroundColor, muted: sonda('var(--ink2)'), fg: sonda('var(--ink)'),
     }
   })
 
@@ -258,9 +258,7 @@ test.describe('casi limite', () => {
       expect(bl!.y + bl!.height, 'etichetta sopra la prima riga').toBeLessThanOrEqual(hl!.y + 1)
       expect(bl!.x).toBeGreaterThanOrEqual(bb!.x)
       expect(bl!.x + bl!.width).toBeLessThanOrEqual(bb!.x + bb!.width)
-      // Nota: a 320 px la pagina ha già uno scorrimento orizzontale causato dalla sezione dei parametri
-      // (scrollWidth 341, anche senza stato non aggiornato): non dipende da #42. Qui si controlla
-      // solo che la cornice non allarghi il blocco.
+      // (Lo scorrimento orizzontale a 320 px, prima presente, è corretto dal #54/#56 e provato in impaginazione.spec.ts.)
       expect(bb!.width, 'la cornice non cambia la larghezza del blocco').toBeCloseTo(larghezzaPronto, 0)
     })
   }

@@ -416,14 +416,13 @@ test.describe('dai campi alla mappa', () => {
     await expect(campo(page, ETICHETTE.lon)).not.toHaveValue('9,19')
   })
 
-  test('gli slider spostano il marcatore', async ({ page, pvgis }) => {
+  test('il campo della longitudine sposta il marcatore (nessuno slider dal #56)', async ({ page, pvgis }) => {
     await orologioFermo(page)
     await avvio(page, pvgis)
     await attendiMappa(page)
     const p0 = await punta(page)
-    const s = page.getByRole('slider', { name: `${ETICHETTE.lon} (slider)`, exact: true })
-    await s.focus()
-    await page.keyboard.press('End') // 45° E: il marcatore va a destra
+    await expect(page.getByRole('slider', { name: `${ETICHETTE.lon} (slider)`, exact: true })).toHaveCount(0)
+    await campo(page, ETICHETTE.lon).fill('45') // 45° E: il marcatore va a destra
     const box = (await mappa(page).boundingBox())!
     await expect
       .poll(async () => {

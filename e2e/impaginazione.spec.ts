@@ -5,7 +5,7 @@ import { ETICHETTE, avvio, orologioFermo, slider, totale } from './helpers'
 // Impaginazione su schermi diversi e contrasto del testo della nota (WCAG 2.x).
 
 test.describe('nessuno scorrimento orizzontale', () => {
-  for (const width of [360, 390, 412, 1280]) {
+  for (const width of [320, 360, 390, 412, 1280]) {
     test(`larghezza ${width} px: scrollWidth ≤ clientWidth`, async ({ page, pvgis }) => {
       await page.setViewportSize({ width, height: 800 })
       await orologioFermo(page)
