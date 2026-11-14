@@ -3,9 +3,12 @@ import type { Tmy } from './engine/pvgisTmy'
 import { DEFAULT_SYSTEM_LOSS_PCT, simulateYear, type PvSystem, type YearResult } from './engine/simulate'
 import AnnualTotal from './ui/AnnualTotal'
 import EstimateMethod from './ui/EstimateMethod'
+import AngleDial from './ui/AngleDial'
 import LocationMap from './ui/LocationMap'
 import MonthlyChart from './ui/MonthlyChart'
+import NumberField from './ui/NumberField'
 import NumberSlider from './ui/NumberSlider'
+import PanelPreview from './ui/PanelPreview'
 import SiteFooter from './ui/SiteFooter'
 import StaleResults from './ui/StaleResults'
 import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
@@ -107,18 +110,24 @@ export default function App() {
                 setLongitude(lon)
               }}
             />
-            <NumberSlider label="Latitudine (Nord)" unit="°" value={latitude} onChange={setLatitude}
-              min={AREA_MIN_LAT} max={AREA_MAX_LAT} step={0.0001} decimals={4} />
-            <NumberSlider label="Longitudine (Est)" unit="°" value={longitude} onChange={setLongitude}
-              min={AREA_MIN_LON} max={AREA_MAX_LON} step={0.0001} decimals={4} />
+            <div className="row2">
+              <NumberField label="Latitudine (Nord)" unit="°" value={latitude} onChange={setLatitude}
+                min={AREA_MIN_LAT} max={AREA_MAX_LAT} step={0.0001} decimals={4} />
+              <NumberField label="Longitudine (Est)" unit="°" value={longitude} onChange={setLongitude}
+                min={AREA_MIN_LON} max={AREA_MAX_LON} step={0.0001} decimals={4} />
+            </div>
           </fieldset>
 
           <fieldset>
             <legend>Pannelli</legend>
-            <NumberSlider label="Inclinazione" unit="°" value={tiltDeg} onChange={setTiltDeg}
-              min={0} max={90} step={1} hint={(v) => (v === 0 ? 'Piatti' : v === 90 ? 'Verticali' : '0° = piatti, 90° = verticali')} />
-            <NumberSlider label="Orientamento (azimut da Nord)" unit="°" value={azimuthDeg} onChange={setAzimuthDeg}
-              min={0} max={359} step={1} hint={(v) => `Verso ${cardinalDirection(v)} · 90° = Est, 180° = Sud, 270° = Ovest`} />
+            {/* L'anteprima e i comandi leggono il valore IMMEDIATO (tiltDeg, azimuthDeg), non quello differito del calcolo. */}
+            <PanelPreview tiltDeg={tiltDeg} azimuthDeg={azimuthDeg} />
+            <div className="dials">
+              <AngleDial kind="tilt" label="Inclinazione" value={tiltDeg} onChange={setTiltDeg}
+                hint={(v) => (v === 0 ? 'Piatti' : v === 90 ? 'Verticali' : '0° = piatti, 90° = verticali')} />
+              <AngleDial kind="azimuth" label="Orientamento (azimut da Nord)" value={azimuthDeg} onChange={setAzimuthDeg}
+                hint={(v) => `Verso ${cardinalDirection(v)}`} />
+            </div>
             <NumberSlider label="Numero di pannelli" value={panelCount} onChange={setPanelCount}
               min={1} max={50} step={1} />
             <NumberSlider label="Potenza di un pannello" unit="Wp" value={panelPowerWp} onChange={setPanelPowerWp}
@@ -156,8 +165,10 @@ export default function App() {
                 panelPowerWp={simulation.system.panelPowerWp}
               />
 
-              <h2>Produzione mese per mese (kWh)</h2>
-              <MonthlyChart monthlyKwh={simulation.year.monthlyKwh} />
+              <div className="sheet chartsheet">
+                <h2>Produzione mese per mese (kWh)</h2>
+                <MonthlyChart monthlyKwh={simulation.year.monthlyKwh} />
+              </div>
 
               <p className="source">
                 Dati: anno meteorologico tipo PVGIS (JRC, Commissione Europea), {tmy.radiationDb} e {tmy.meteoDb},

@@ -21,13 +21,16 @@ export default function AnnualTotal({ annualKwh, peakPowerKwp, panelCount, panel
   return (
     // Il gruppo ha nome (l'etichetta) e descrizione (la nota): letta una sola volta, non a ogni lettura del numero.
     <div role="group" aria-labelledby={labelId} aria-describedby={noteId}>
-      <p className="hero-label" id={labelId}>Produzione stimata in un anno</p>
-      <p className="hero">
-        {formatNumber(annualKwh)} <span className="hero-unit">kWh</span>
-      </p>
-      <p className="hero-detail">
-        Impianto da {formatNumber(peakPowerKwp, 2)} kWp ({panelCount} × {panelPowerWp} Wp)
-      </p>
+      {/* Targa dello strumento: il totale in chiaro su fondo scuro. */}
+      <div className="readout">
+        <p className="hero-label" id={labelId}>Produzione stimata in un anno</p>
+        <p className="hero">
+          {formatNumber(annualKwh)} <span className="hero-unit">kWh</span>
+        </p>
+        <p className="hero-detail">
+          Impianto da {formatNumber(peakPowerKwp, 2)} kWp ({panelCount} × {panelPowerWp} Wp)
+        </p>
+      </div>
       <p className="hero-note" id={noteId}>{ANNUAL_NOTE}</p>
     </div>
   )

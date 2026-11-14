@@ -1,125 +1,216 @@
+/*
+ * Aspetto "Strumento di misura" (issue #56, proposta A, scelta dal PO il 14/11/2026).
+ * TUTTI i colori e i caratteri sono variabili su :root (più sotto, tema chiaro e scuro): un secondo
+ * aspetto potrà sostituire solo queste variabili. I file accanto ai componenti (dial.css,
+ * panelPreview.css, map.css) usano solo queste variabili.
+ *
+ * Idea: la pagina è uno strumento di rilievo. L'unico colore caldo ("segnale") compare solo su ciò
+ * che si tocca (cursori, indici dei comandi, marcatore della mappa). Il totale è la targa scura di
+ * uno strumento. Niente ombre né gradienti, angoli piccoli (6 px).
+ * Contrasti misurati (WCAG 2.x): vedi il rapporto della PR; testi ≥ 4,5:1, grafica ≥ 3:1.
+ */
+
+/* Caratteri: Barlow e Barlow Semi Condensed (licenza OFL-1.1), sottoinsieme latin, file locali. */
+@font-face { font-family: 'Barlow'; font-weight: 400; font-style: normal; font-display: swap; src: url('./assets/fonts/barlow-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 500; font-style: normal; font-display: swap; src: url('./assets/fonts/barlow-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 600; font-style: normal; font-display: swap; src: url('./assets/fonts/barlow-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Semi Condensed'; font-weight: 600; font-style: normal; font-display: swap; src: url('./assets/fonts/barlow-semi-condensed-latin-600-normal.woff2') format('woff2'); }
+
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
   color-scheme: light dark;
-  --bg: #fafaf7;
-  --fg: #1d1d1b;
-  --muted: #6b6b66;
-  --border: #d9d9d2;
-  --grid: #e6e6e0;
-  --accent: #d98a00;
-  /* Anello di focus: --fg (16:1 sullo sfondo chiaro, 15:1 sullo scuro; nei temi segue --fg). --accent darebbe 2,65:1, sotto il 3:1 di WCAG 1.4.11. */
-  --focus-ring: var(--fg);
-  /* Colore delle barre: verificato con il validatore della guida dataviz (banda di
-     luminosità, saturazione). Sul fondo chiaro il contrasto è 2,7:1, sotto 3:1: per
-     questo il grafico ha sempre la tabella dei valori e le etichette sugli estremi. */
-  --bar: #d98a00;
+  --font: 'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-num: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+
+  --paper: #eceff3;   /* fondo della pagina */
+  --sheet: #f7f8fa;   /* schede */
+  --face: #edf0f4;    /* quadranti, campi */
+  --ink: #101c33;     /* testo e strumenti */
+  --ink2: #46536a;    /* testo secondario */
+  --line: #7a8699;    /* incisione: bordi dei campi, archi, tacche (≥ 3:1) */
+  --hair: #cdd4de;    /* filetti decorativi */
+  --signal: #cf3d0c;  /* segnale: solo ciò che si tocca */
+  --on-signal: #ffffff;
   --error: #b42318;
-  --link: #0b5cad; /* contrasto 6,4:1 su --bg */
-  --pin-edge: #1d1d1b;
+  --bar: #24407a;     /* barre del grafico */
+  --link: #1d3764;
+  /* Disegno del pannello */
+  --section: #1d3764; --cell: #1d3764; --cell-line: #7f9bd0; --edge: #0b1530; --ground: #e4e9f0;
+  /* Targa del totale (display dello strumento) */
+  --plate: #101c33; --plate-ink: #eaf0fa; --plate-mute: #aebbd0; --plate-error: #ffa99c;
+  --tooltip-bg: var(--plate); --tooltip-ink: var(--plate-ink);
+  /* Anello di focus: = --ink (≥ 14:1 su tutti i fondi; WCAG 1.4.11 chiede ≥ 3:1) */
+  --focus-ring: var(--ink);
+  --pin-edge: #101c33;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #181816;
-    --fg: #ecece6;
-    --muted: #9a9a92;
-    --border: #3a3a35;
-    --grid: #2c2c28;
-    --accent: #f0a830;
-    /* Nel tema scuro un passo più scuro dell'accento: #f0a830 è troppo luminoso per una
-       superficie piena (fuori dalla banda di luminosità del validatore). */
-    --bar: #c4810f;
-    --error: #f97066;
-    --link: #7db7ff; /* contrasto 8,5:1 su --bg */
+    --paper: #0d1522; --sheet: #141f31; --face: #101a2a;
+    --ink: #e6ecf5; --ink2: #a3b0c4;
+    --line: #6f7f98; --hair: #26354d;
+    --signal: #ff8c42; --on-signal: #0d1522;
+    --error: #ff8f84;
+    --bar: #86a9ec;
+    --link: #9fb8ee;
+    --section: #9fb8ee; --cell: #2c4c88; --cell-line: #8fabe3; --edge: #cfdcf5; --ground: #182640;
+    --plate: #070d17; --plate-error: #ffa99c;
+    --pin-edge: #101c33;
   }
 }
 
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-}
-
-main {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 32px 16px;
-}
-
-h1 { margin: 0; color: var(--accent); }
-h2 { font-size: 16px; font-weight: 600; margin: 32px 0 8px; }
-.subtitle { margin-top: 4px; color: var(--muted); }
-
-/* Due colonne su schermo largo (parametri | risultati), una sola su telefono. */
-.layout {
-  display: grid;
-  gap: 32px;
-  margin-top: 24px;
-}
-
-@media (min-width: 820px) {
-  .layout { grid-template-columns: 360px 1fr; align-items: start; }
-}
-
-fieldset {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px 4px;
-  margin: 0 0 16px;
-  min-width: 0;
-}
-
-legend { padding: 0 4px; font-weight: 600; }
-
-.param { margin-bottom: 12px; }
-.param label { display: block; font-size: 14px; color: var(--muted); }
-.param-row { display: flex; align-items: center; gap: 12px; }
-.param-row input[type='range'] { flex: 1; min-width: 0; accent-color: var(--accent); }
-.param-field { display: flex; align-items: center; gap: 4px; }
-.param-unit { font-size: 14px; color: var(--muted); min-width: 1.5em; }
-.param-hint, .param-error { margin: 2px 0 0; font-size: 13px; }
-.param-hint { color: var(--muted); }
-.param-error { color: var(--error); }
-
-input[type='text'] {
-  font: inherit;
-  width: 7.5em;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--fg);
-  text-align: right;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.5 var(--font);
   font-variant-numeric: tabular-nums;
 }
 
-input[aria-invalid='true'] { border-color: var(--error); }
+h1, h2, h3, p, ul { margin: 0; }
+:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 
-.status { margin: 0 0 16px; color: var(--muted); }
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 16px 32px;
+}
+@media (min-width: 820px) { main { padding-inline: 32px; } }
+
+header { padding-bottom: 16px; border-bottom: 1px solid var(--ink); }
+h1 { font: 600 clamp(40px, 7vw, 56px)/1 var(--font-num); letter-spacing: 0.01em; }
+.subtitle { margin-top: 6px; color: var(--ink2); font-size: 18px; max-width: 44ch; }
+
+/* Due colonne su schermo largo (parametri | risultati), una sola su telefono.
+   minmax(0, 1fr): senza il minimo 0 un contenuto largo allargherebbe la colonna oltre lo schermo (#54). */
+.layout {
+  display: grid;
+  gap: 28px;
+  margin-top: 24px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 820px) {
+  .layout { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+}
+
+/* Schede */
+.sheet, fieldset {
+  background: var(--sheet);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 18px;
+  margin: 0;
+  min-width: 0;
+}
+@media (min-width: 820px) { .sheet, fieldset { padding: 22px; } }
+fieldset + fieldset { margin-top: 20px; }
+/* La legenda diventa il titolo della scheda (float: evita la tacca sul bordo del fieldset). */
+legend, .sheet > h2 {
+  font: 600 22px/1.2 var(--font-num);
+  letter-spacing: 0.01em;
+  padding: 0;
+}
+legend { float: left; width: 100%; margin-bottom: 14px; }
+legend + * { clear: both; }
+h2 { font: 600 20px/1.2 var(--font-num); }
+.sheet > h2 { margin-bottom: 8px; }
+
+/* Campi */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 359.98px) { .row2 { grid-template-columns: 1fr; } }
+.fld label { display: block; font-weight: 500; font-size: 15.5px; margin-bottom: 4px; }
+.num {
+  display: flex;
+  align-items: center;
+  background: var(--face);
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  padding-right: 10px;
+}
+.num:focus-within { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.num input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 44px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 500 18px var(--font);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  border-radius: 6px;
+}
+.num input:focus { outline: none; }
+.num:has(input[aria-invalid='true']) { border-color: var(--error); }
+.num .u { color: var(--ink2); font-size: 16px; min-width: 1.6em; }
+.help { color: var(--ink2); font-size: 14.5px; line-height: 1.35; margin-top: 5px; }
+.param-error { color: var(--error); }
+
+/* Parametri con slider: etichetta a sinistra, campo a destra, slider sotto. */
+.sl { margin-top: 18px; }
+.fld-inline { display: grid; grid-template-columns: minmax(0, 1fr) 132px; column-gap: 12px; align-items: center; }
+.fld-inline > label { margin: 0; grid-column: 1; grid-row: 1; }
+.fld-inline > .num { grid-column: 2; grid-row: 1; }
+.fld-inline > .rng, .fld-inline > .help { grid-column: 1 / -1; }
+
+.rng { position: relative; margin-top: 6px; }
+.rng .ticks {
+  position: absolute; left: 13px; right: 13px; top: 50%; margin-top: 6px; height: 7px;
+  display: flex; justify-content: space-between; pointer-events: none;
+}
+.rng .ticks i { width: 1px; height: 100%; background: var(--line); }
+.rng input[type='range'] {
+  position: relative; display: block; width: 100%; height: 44px; margin: 0;
+  background: transparent; -webkit-appearance: none; appearance: none;
+  /* Il dito che scorre in verticale fa scorrere la pagina; in orizzontale muove lo slider. */
+  touch-action: pan-y;
+}
+.rng input[type='range']::-webkit-slider-runnable-track { height: 3px; background: var(--ink); border-radius: 2px; }
+.rng input[type='range']::-moz-range-track { height: 3px; background: var(--ink); border-radius: 2px; }
+.rng input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 26px; height: 26px; margin-top: -11.5px; border-radius: 50%;
+  background: var(--signal); border: 3px solid var(--sheet); box-shadow: 0 0 0 1.5px var(--signal);
+}
+.rng input[type='range']::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--signal); border: 3px solid var(--sheet); box-shadow: 0 0 0 1.5px var(--signal);
+}
+.rng input[type='range']:focus { outline: none; }
+.rng input[type='range']:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1.5px var(--signal), 0 0 0 5px var(--sheet), 0 0 0 8px var(--focus-ring); }
+.rng input[type='range']:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 1.5px var(--signal), 0 0 0 5px var(--sheet), 0 0 0 8px var(--focus-ring); }
+
+/* Pannelli: anteprima, poi i due comandi circolari affiancati (si impilano se non ci stanno). */
+.dials { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 14px 12px; margin-top: 14px; }
+.angle-dial { min-width: 0; }
+.angle-dial .fld { margin-top: 10px; }
+/* Due comandi affiancati con etichette di lunghezza diversa: i campi restano allineati (l'etichetta lunga può andare a capo). */
+@media (min-width: 370px) and (max-width: 1099px) { .angle-dial .fld > label { min-height: 2.6em; } }
+
+.status { margin: 0 0 30px; color: var(--ink2); }
+/* Messaggio lungo senza spazi (es. dettaglio tecnico di un errore): va a capo invece di allargare la pagina. */
+.status, .error { overflow-wrap: anywhere; }
 .error { color: var(--error); }
 
 /* Risultati della posizione precedente (attesa, download, errore; issue #42).
-   NIENTE opacità: moltiplicava giù tutto l'albero e portava testi (--fg 2,82:1 chiaro, 3,98:1 scuro;
-   --muted 1,87:1 e 2,28:1) e barre sotto WCAG 1.4.3 / 1.4.11. Lo stato è dato da forma e parole, non
-   dal solo colore (WCAG 1.4.1): cornice tratteggiata 2 px in --muted (5,12:1 chiaro, 6,28:1 scuro su
-   --bg), etichetta in --fg (16,15:1 / 14,99:1) sul bordo superiore come la legenda di un fieldset,
-   numero grande del totale in --muted. Tutto il resto (altri testi, barre, anello di focus) resta
-   al contrasto dello stato normale.
-   Lo spazio della cornice è sempre riservato (bordo trasparente quando i dati sono aggiornati):
-   nessuno spostamento tra i due stati. L'etichetta sta sul bordo e il padding alto (18 px) è più
-   grande della sua metà sporgente: non copre la prima riga, nemmeno a 360 px (va a capo
-   restando nella cornice, che cresce solo quando i dati sono non aggiornati).
-   Nessuna transizione: una dissolvenza del bordo da trasparente passerebbe per contrasti bassi. */
+   NIENTE opacità (portava testi e barre sotto WCAG 1.4.3 / 1.4.11). Lo stato è dato da forma e
+   parole, non dal solo colore (WCAG 1.4.1): cornice tratteggiata 2 px in --ink2, etichetta in --ink
+   sul bordo superiore come la legenda di un fieldset, totale annuo in colore secondario della
+   targa (--plate-mute). Tutto il resto (testi, barre, anello di focus) resta al contrasto normale.
+   La cornice sta appena fuori dalla colonna (margini negativi) e il suo spazio è sempre riservato
+   (bordo trasparente quando i dati sono aggiornati): la targa resta allineata alle schede e nulla
+   si sposta tra i due stati. Nessuna transizione (una dissolvenza passerebbe per contrasti bassi). */
 .stale-results {
   position: relative;
-  padding: 18px 12px 12px;
+  margin: -14px -12px 0;
+  padding: 14px 10px 10px;
   border: 2px dashed transparent;
-  border-radius: 6px;
+  border-radius: 8px;
 }
-.stale-results.is-stale { border-color: var(--muted); }
+.stale-results.is-stale { border-color: var(--ink2); }
 .stale-label {
   position: absolute;
   top: 0;
@@ -127,34 +218,37 @@ input[aria-invalid='true'] { border-color: var(--error); }
   max-width: calc(100% - 20px);
   transform: translateY(-50%);
   padding: 0 6px;
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 13px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
   line-height: 1.3;
 }
-.stale-results.is-stale .hero { color: var(--muted); }
-/* forced-colors: il browser impone i colori ma non cambia lo stile del bordo: resta tratteggiato,
-   in colore di sistema; etichetta con Canvas/CanvasText. Il totale diventa CanvasText (accettato). */
+.stale-results.is-stale .hero { color: var(--plate-mute); }
+/* forced-colors: il browser impone i colori ma non cambia lo stile del bordo: resta tratteggiato. */
 @media (forced-colors: active) {
   .stale-results.is-stale { border-color: CanvasText; }
   .stale-label { background: Canvas; color: CanvasText; }
 }
 
-.hero-label { margin: 0; color: var(--muted); }
-.hero { margin: 0; font-size: 56px; font-weight: 600; line-height: 1.1; }
-.hero-unit { font-size: 24px; font-weight: 400; color: var(--muted); }
-.hero-detail { margin: 4px 0 0; color: var(--muted); }
-.hero-note { margin: 8px 0 0; max-width: 60ch; font-size: 13px; line-height: 1.45; color: var(--muted); }
+/* Targa del totale */
+.readout { background: var(--plate); color: var(--plate-ink); border-radius: 6px; padding: 18px 20px 16px; border: 1px solid var(--hair); }
+.hero-label { font-size: 15.5px; color: var(--plate-mute); }
+.hero { font: 600 clamp(60px, 9vw, 84px)/1.05 var(--font-num); letter-spacing: 0.005em; margin-top: 2px; }
+.hero-unit { font-size: 0.4em; color: var(--plate-mute); margin-left: 0.1em; letter-spacing: 0; }
+.hero-detail { font-size: 16.5px; color: var(--plate-ink); margin-top: 2px; }
+.hero-note { margin-top: 12px; max-width: 62ch; font-size: 14.5px; line-height: 1.45; color: var(--ink2); }
+.chartsheet { margin-top: 20px; }
 
-.source { margin-top: 24px; font-size: 13px; color: var(--muted); }
+.source { margin-top: 14px; max-width: 62ch; font-size: 14.5px; line-height: 1.45; color: var(--ink2); }
 
 /* Grafico mensile */
 .chart { margin: 0; }
 .chart-plot { position: relative; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart-grid { stroke: var(--grid); stroke-width: 1; }
-.chart-tick { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.chart-value { fill: var(--fg); font-size: 12px; font-weight: 600; }
+.chart-grid { stroke: var(--hair); stroke-width: 1; }
+.chart-grid-zero { stroke: var(--ink); stroke-width: 1.2; }
+.chart-tick { fill: var(--ink2); font-family: var(--font); font-size: 15px; font-variant-numeric: tabular-nums; }
+.chart-value { fill: var(--ink); font-family: var(--font); font-size: 15px; font-weight: 600; }
 .chart-hit { fill: transparent; }
 .chart-bar-fill { fill: var(--bar); transition: opacity 0.15s; pointer-events: none; }
 .chart-value { pointer-events: none; }
@@ -165,53 +259,60 @@ input[aria-invalid='true'] { border-color: var(--error); }
 @media (forced-colors: active) { .chart-focus { stroke: CanvasText; } }
 
 /* Su schermo stretto il disegno si rimpicciolisce: si ingrandiscono i testi (in unità SVG)
-   perché restino leggibili (≈ 10 px effettivi). */
+   perché restino leggibili (≈ 10 px effettivi). I mesi restano "Gen, Feb, …". */
 @media (max-width: 600px) {
-  .chart-tick, .chart-value { font-size: 18px; }
+  .chart-tick, .chart-value { font-size: 20px; }
 }
 
 .chart-tooltip {
   position: absolute;
   transform: translate(-50%, calc(-100% - 8px));
   padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
+  border-radius: 4px;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-ink);
   font-size: 13px;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.12);
 }
 
-.chart-table { margin-top: 8px; font-size: 14px; }
-.chart-table summary { cursor: pointer; color: var(--muted); }
-.chart-table table { width: 100%; max-width: 320px; border-collapse: collapse; margin-top: 8px; }
-.chart-table th, .chart-table td { padding: 4px 0; border-bottom: 1px solid var(--border); }
-.chart-table th { text-align: left; font-weight: 400; color: var(--muted); }
-.chart-table td { text-align: right; font-variant-numeric: tabular-nums; }
+/* Sommari richiudibili (tabella dei valori, "Come è calcolata la stima"): chevron, area di tocco 44 px. */
+details { margin-top: 12px; }
+summary {
+  cursor: pointer; font-weight: 500; padding: 10px 0; min-height: 44px;
+  display: flex; align-items: center; list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before {
+  content: ''; width: 8px; height: 8px; flex: none; margin: 0 12px 0 4px;
+  border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: rotate(-45deg);
+}
+details[open] > summary::before { transform: rotate(45deg); }
+summary:focus-visible { outline-offset: -3px; }
+@media (forced-colors: active) { summary::before { border-color: CanvasText; } }
 
-/* "Come è calcolata la stima": stesso stile del sommario della tabella e della nota delle fonti. */
-.method { margin-top: 16px; font-size: 14px; color: var(--muted); }
-.method summary { cursor: pointer; }
-.method-body { max-width: 70ch; font-size: 13px; line-height: 1.45; }
-.method-body p { margin: 8px 0 0; }
-.method-body ul { margin: 4px 0 0; padding-left: 20px; }
-.method-body li { margin-top: 4px; }
+.chart-table table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 15px; }
+.chart-table th, .chart-table td { padding: 5px 8px; border-bottom: 1px solid var(--hair); }
+.chart-table th { text-align: left; font-weight: 500; }
+.chart-table td, .chart-table th:last-child { text-align: right; }
+
+.method-body { max-width: 68ch; font-size: 15px; line-height: 1.5; }
+.method-body p { margin: 8px 0; }
+.method-body ul { margin: 6px 0; padding-left: 20px; }
+.method-body li { margin: 4px 0; }
 
 /* Barra del totale annuo: solo su telefono. Resta in basso mentre si muovono gli slider.
-   Sfondo pieno (non trasparente): i colori --fg/--muted/--error hanno così lo stesso contrasto
-   del resto della pagina in entrambi i temi. */
+   Sfondo pieno (targa): i colori della targa hanno così lo stesso contrasto in entrambi i temi. */
 .sticky-total { display: none; }
 
 @media (max-width: 819px) {
-  :root { --sticky-h: 56px; }
+  :root { --sticky-h: 64px; }
   html { scroll-padding-bottom: calc(var(--sticky-h) + env(safe-area-inset-bottom) + 16px); }
-  /* Spazio sotto il contenuto: nulla (né il focus da tastiera, né un futuro piè di pagina) finisce sotto la barra. */
+  /* Spazio sotto il contenuto: nulla (né il focus da tastiera, né il piè di pagina) finisce sotto la barra. */
   main { padding-bottom: calc(32px + var(--sticky-h) + env(safe-area-inset-bottom)); }
   .sticky-total {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     position: fixed;
@@ -220,49 +321,40 @@ input[aria-invalid='true'] { border-color: var(--error); }
     bottom: 0;
     z-index: 10;
     min-height: calc(var(--sticky-h) + env(safe-area-inset-bottom));
-    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
-    align-items: center;
-    background: var(--bg);
-    border-top: 1px solid var(--border);
-    box-shadow: 0 -2px 8px rgb(0 0 0 / 0.08);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: var(--plate);
+    color: var(--plate-ink);
+    border-top: 2px solid var(--line);
   }
-  .sticky-label { font-size: 14px; color: var(--muted); line-height: 1.25; }
-  .sticky-value { font-size: 24px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .sticky-unit { font-size: 14px; font-weight: 400; color: var(--muted); }
-  .sticky-msg { font-size: 14px; font-weight: 400; color: var(--muted); white-space: normal; }
-  .sticky-msg.error { color: var(--error); }
+  .sticky-label { font-size: 14.5px; color: var(--plate-mute); line-height: 1.25; max-width: 11em; }
+  .sticky-value { font: 600 34px/1 var(--font-num); white-space: nowrap; }
+  .sticky-unit { font-size: 0.5em; font-weight: 600; color: var(--plate-mute); margin-left: 0.1em; }
+  .sticky-msg { font: 400 14.5px/1.25 var(--font); color: var(--plate-mute); white-space: normal; }
+  .sticky-msg.error { color: var(--plate-error); }
   /* Testi brevi d'errore (#11): sempre su una riga; se manca spazio va a capo l'etichetta generica. */
   .sticky-short { white-space: nowrap; }
+  /* Numero del totale precedente (aggiornamento o errore), in colore secondario come `.hero` non aggiornato. */
+  .sticky-old { color: var(--plate-mute); }
 }
 
-/* Barra fissa: numero del totale precedente (aggiornamento o errore), in colore secondario come `.stale-results.is-stale .hero`. */
-@media (max-width: 819px) {
-  .sticky-old { color: var(--muted); }
-}
-
-/* Piè di pagina con la privacy: stesso colore secondario della nota sotto il totale. */
-.site-footer {
-  margin-top: 32px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-.site-footer p { margin: 0; max-width: 70ch; font-size: 13px; line-height: 1.45; color: var(--muted); }
-.site-footer strong { color: var(--fg); }
+/* Piè di pagina con la privacy. */
+.site-footer { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--hair); }
+.site-footer p { max-width: 78ch; font-size: 14.5px; line-height: 1.5; color: var(--ink2); }
+.site-footer strong { color: var(--ink); }
 
 /* Mappa della posizione */
-.map-toggle {
-  font: inherit;
-  width: 100%;
-  min-height: 44px;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
+.map-toggle, .reload-button {
+  font: 500 16px var(--font);
+  min-height: 48px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--line);
   border-radius: 6px;
-  background: transparent;
-  color: var(--fg);
+  background: var(--face);
+  color: var(--ink);
   cursor: pointer;
 }
-.map-toggle:focus-visible, .map:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.map-toggle { width: 100%; margin-bottom: 12px; }
+.map-toggle:focus-visible, .map:focus-visible, .reload-button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 
 /* Errore di caricamento della mappa e rete di sicurezza dell'intera pagina (issue #38). */
 .map-error {
@@ -275,33 +367,24 @@ input[aria-invalid='true'] { border-color: var(--error); }
   margin-bottom: 12px;
   overflow: auto;
 }
-.map-error p, .app-error p { margin: 0; max-width: 60ch; color: var(--fg); }
+.map-error p, .app-error p { margin: 0; max-width: 60ch; color: var(--ink); }
 .app-error { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 48px 0; }
-.reload-button {
-  font: inherit;
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--fg);
-  cursor: pointer;
-}
-.retry-button { margin-bottom: 16px; }
-.reload-button[aria-disabled='true'] { color: var(--muted); cursor: progress; }
+.retry-button { margin-bottom: 30px; }
+.reload-button[aria-disabled='true'] { color: var(--ink2); cursor: progress; }
 .results:focus { outline: none; }
-.reload-button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
-.map-picker { margin-bottom: 12px; }
+.map-picker { margin-bottom: 14px; }
 .map {
   height: 280px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--face);
   /* Contesto di impilamento proprio: i livelli di Leaflet (z-index fino a 1000) restano sotto la barra fissa. */
   isolation: isolate;
 }
-.map-loading { display: flex; align-items: center; justify-content: center; color: #4a4a46; font-size: 14px; }
-.map-notice { margin: 6px 0 0; min-height: 1.4em; font-size: 13px; color: var(--muted); }
+/* Colore del testo fisso e scuro: il riquadro di caricamento ha sfondo chiaro anche nel tema scuro. */
+.map-loading { display: flex; align-items: center; justify-content: center; background: #f2efe9; color: #3d3d3a; font-size: 14px; }
+.map-notice { margin: 6px 0 0; min-height: 1.4em; font-size: 14.5px; color: var(--ink2); }
 .map-notice:empty { min-height: 0; margin: 0; }
 
 @media (max-width: 819px) {
@@ -309,3 +392,5 @@ input[aria-invalid='true'] { border-color: var(--error); }
   .map-picker, .map-error { margin-inline: 12px; }
   .map { height: clamp(240px, 50svh, 420px); }
 }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

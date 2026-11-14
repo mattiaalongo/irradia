@@ -10,9 +10,9 @@ async function verificaAnello(barra: Locator, nome: string): Promise<void> {
     const s = getComputedStyle(anello)
     const r = anello.getBoundingClientRect()
     const b = g.querySelector('.chart-bar-fill')!.getBoundingClientRect()
-    // --fg risolto come colore di testo: il browser lo restituisce nello stesso formato del tratto.
+    // --ink (ex --fg) risolto come colore di testo: il browser lo restituisce nello stesso formato del tratto.
     const sonda = document.createElement('span')
-    sonda.style.color = 'var(--fg)'
+    sonda.style.color = 'var(--ink)'
     document.body.append(sonda)
     const fg = getComputedStyle(sonda).color
     sonda.remove()
@@ -24,7 +24,7 @@ async function verificaAnello(barra: Locator, nome: string): Promise<void> {
     }
   })
   expect(d.display, `${nome}: anello visibile`).not.toBe('none')
-  expect(d.stroke, `${nome}: tratto = --fg`).toBe(d.fg)
+  expect(d.stroke, `${nome}: tratto = --ink`).toBe(d.fg)
   expect(d.width, `${nome}: spessore`).toBeGreaterThanOrEqual(2)
   expect(d.vector, `${nome}: vector-effect`).toBe('non-scaling-stroke')
   expect(contrasto(d.stroke, d.sfondo), `${nome}: contrasto tratto/sfondo`).toBeGreaterThanOrEqual(3)
@@ -208,8 +208,13 @@ test.describe('tastiera', () => {
       ETICHETTE.lat, ETICHETTE.lon, ETICHETTE.inclinazione, ETICHETTE.azimut, ETICHETTE.pannelli,
       ETICHETTE.potenza, ETICHETTE.perdite,
     ]
-    // Nel DOM, per ogni parametro lo slider precede il campo di testo.
-    const ordine = parametri.flatMap((e) => [slider(page, e), campo(page, e)])
+    // Nel DOM (#56): latitudine e longitudine solo campo; nei comandi circolari (inclinazione,
+    // orientamento) lo slider precede il campo; negli altri parametri il campo precede lo slider.
+    const circolariEtichette: string[] = [ETICHETTE.inclinazione, ETICHETTE.azimut]
+    const ordine = parametri.flatMap((e) =>
+      e === ETICHETTE.lat || e === ETICHETTE.lon ? [campo(page, e)]
+        : circolariEtichette.includes(e) ? [slider(page, e), campo(page, e)] : [campo(page, e), slider(page, e)],
+    )
 
     // La mappa (contenitore, due pulsanti di zoom, link all'attribuzione) precede i campi:
     // si parte dall'ultimo suo controllo, così il primo Tab arriva al primo parametro.
@@ -220,13 +225,57 @@ test.describe('tastiera', () => {
     for (const controllo of ordine) {
       await page.keyboard.press('Tab')
       await expect(controllo).toBeFocused()
-      // Fuoco visibile: contorno disegnato (stile e spessore non nulli).
-      const outline = await controllo.evaluate((el) => {
-        const s = getComputedStyle(el)
-        return { style: s.outlineStyle, width: parseFloat(s.outlineWidth) }
+      // Comandi circolari: niente contorno sul <input> trasparente, il fuoco è l'anello SVG .dial-ring.
+      if (await controllo.evaluate((el) => el.classList.contains('dial-input'))) {
+        const anello = await controllo.evaluate((el) => {
+          const ring = el.closest('.dial-control')!.querySelector('.dial-ring')!
+          const s = getComputedStyle(ring)
+          return { display: s.display, w: parseFloat(s.strokeWidth), stroke: s.stroke, bg: getComputedStyle(document.body).backgroundColor }
+        })
+        expect(anello.display, 'anello del comando circolare visibile').not.toBe('none')
+        expect(anello.w).toBeGreaterThanOrEqual(2)
+        expect(contrasto(anello.stroke, anello.bg), 'anello/sfondo').toBeGreaterThanOrEqual(3)
+        continue
+      }
+      // Fuoco visibile (#56: l'anello non è più sul <input> stesso): campo di testo = contorno del
+      // contenitore `.num` (:focus-within); slider = anello a 3 strati sul cursore (box-shadow del pezzo
+      // ::-webkit-slider-thumb); in ogni altro caso il contorno dell'elemento. Colore dell'anello = --ink.
+      const f = await controllo.evaluate((el) => {
+        const sonda = document.createElement('span')
+        sonda.style.color = 'var(--ink)'
+        document.body.append(sonda)
+        const ink = getComputedStyle(sonda).color
+        sonda.remove()
+        const proprio = getComputedStyle(el)
+        const num = el.closest('.num')
+        const contorno = (s: CSSStyleDeclaration) => ({ style: s.outlineStyle, width: parseFloat(s.outlineWidth), color: s.outlineColor })
+        const range = el instanceof HTMLInputElement && el.type === 'range'
+        // Chromium non restituisce lo stile calcolato di ::-webkit-slider-thumb (sempre "none"): si legge la
+        // regola CSS che si applica al fuoco da tastiera e si controlla che riguardi questo elemento.
+        let thumb = ''
+        if (range && el.matches(':focus-visible')) {
+          for (const sheet of document.styleSheets) {
+            for (const rule of sheet.cssRules) {
+              if (!(rule instanceof CSSStyleRule) || !rule.selectorText.includes('::-webkit-slider-thumb')) continue
+              const base = rule.selectorText.replace('::-webkit-slider-thumb', '')
+              if (base.includes(':focus-visible') && el.matches(base)) thumb = rule.style.boxShadow
+            }
+          }
+        }
+        return {
+          proprio: contorno(proprio), num: num ? contorno(getComputedStyle(num)) : null, thumb, ink,
+          sfondo: getComputedStyle(document.body).backgroundColor,
+        }
       })
-      expect(outline.style, 'outline-style').not.toBe('none')
-      expect(outline.width, 'outline-width').toBeGreaterThan(0)
+      const conContorno = [f.proprio, f.num].find((c) => c && c.style !== 'none' && c.width > 0)
+      if (conContorno) {
+        expect(conContorno.width, 'outline-width').toBeGreaterThanOrEqual(2)
+        expect(conContorno.color, 'colore del contorno = --ink').toBe(f.ink)
+        expect(contrasto(conContorno.color, f.sfondo), 'contorno/sfondo').toBeGreaterThanOrEqual(3)
+      } else {
+        expect(f.thumb, 'regola :focus-visible::-webkit-slider-thumb con box-shadow').not.toBe('')
+        expect(f.thumb, 'anello sul cursore: colore --focus-ring (= --ink)').toContain('--focus-ring')
+      }
     }
 
     for (let m = 0; m < 12; m++) {
@@ -283,7 +332,7 @@ test.describe('tastiera', () => {
       const d = await pulsante.evaluate((el) => {
         const s = getComputedStyle(el)
         const sonda = document.createElement('span')
-        sonda.style.color = 'var(--fg)'
+        sonda.style.color = 'var(--ink)'
         document.body.append(sonda)
         const fg = getComputedStyle(sonda).color
         sonda.remove()

@@ -477,7 +477,7 @@ test.describe('pulsante "Riprova" (issue #21)', () => {
     // Risposta tenuta in sospeso: si vede lo stato "in corso" e il doppio clic non raddoppia.
     const gate = pvgis.hold()
     // Da tastiera: dall'ultimo campo dei parametri, Tab porta al pulsante; Invio lo attiva.
-    await campo(page, ETICHETTE.perdite).focus()
+    await slider(page, ETICHETTE.perdite).focus() // ultimo controllo dei parametri (campo, poi slider)
     await page.keyboard.press('Tab')
     await expect(riprova(page)).toBeFocused()
     await page.keyboard.press('Enter')
@@ -583,7 +583,7 @@ test.describe('pulsante "Riprova" (issue #21)', () => {
     await conErrore(page, pvgis, (p) => p.gatewayError(502))
     for (const tema of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: tema })
-      await campo(page, ETICHETTE.perdite).focus()
+      await slider(page, ETICHETTE.perdite).focus()
       await page.keyboard.press('Tab')
       await expect(riprova(page)).toBeFocused()
       const d = await riprova(page).evaluate((b) => {

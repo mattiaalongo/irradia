@@ -1,0 +1,71 @@
+/*
+ * Comandi circolari (AngleDial). I colori vengono dalle variabili di index.css (:root), così un
+ * secondo aspetto può sostituirle senza toccare questo file. Il disegno è un SVG aria-hidden;
+ * lo slider nativo trasparente sta sopra e riceve puntatore e tastiera.
+ */
+.dial-box {
+  background: var(--face);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 6px;
+}
+.dial-control {
+  position: relative;
+  max-width: 200px;
+  margin: 0 auto;
+  /* Solo qui il dito non fa scorrere la pagina: fuori dal comando si scorre normalmente. */
+  touch-action: none;
+}
+.dial-svg { display: block; width: 100%; height: auto; overflow: visible; pointer-events: none; }
+.dial-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.dial-input:active { cursor: grabbing; }
+
+.dial-face { fill: var(--sheet); stroke: none; }
+.dial-ticks { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+.dial-arc { fill: none; stroke: var(--line); stroke-width: 1.8; }
+.dial-axes { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dial-num, .dial-letter {
+  fill: var(--ink2);
+  font-family: var(--font-num);
+  font-weight: 600;
+  font-size: 14px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.angle-dial-azimuth .dial-num { font-size: 12.5px; }
+.dial-letter { fill: var(--ink); font-size: 19px; }
+.dial-sweep { fill: none; stroke: var(--signal); stroke-width: 3.5; stroke-linecap: round; }
+.dial-needle { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.dial-needle-thick { stroke-width: 5; stroke-linecap: butt; }
+.dial-hub { fill: var(--sheet); stroke: var(--ink); stroke-width: 2.2; }
+.dial-handle { fill: var(--signal); stroke: var(--sheet); stroke-width: 2.5; }
+.dial-handle-dot { fill: var(--on-signal); }
+.dial-ring, .dial-ring-halo { display: none; fill: none; }
+.dial-ring-halo { stroke: var(--sheet); stroke-width: 5; }
+.dial-ring { stroke: var(--focus-ring); stroke-width: 2.5; }
+.dial-input:focus-visible ~ .dial-svg .dial-ring,
+.dial-input:focus-visible ~ .dial-svg .dial-ring-halo { display: inline; }
+.dial-input:focus-visible { outline: none; }
+
+@media (forced-colors: active) {
+  .dial-face { fill: Canvas; }
+  .dial-ticks, .dial-arc, .dial-axes, .dial-needle, .dial-hub { stroke: CanvasText; }
+  .dial-hub { fill: Canvas; }
+  .dial-num, .dial-letter { fill: CanvasText; }
+  .dial-sweep { stroke: Highlight; }
+  .dial-handle { fill: Highlight; stroke: Canvas; }
+  .dial-handle-dot { fill: HighlightText; }
+  .dial-ring { stroke: CanvasText; }
+  .dial-ring-halo { stroke: Canvas; }
+}
