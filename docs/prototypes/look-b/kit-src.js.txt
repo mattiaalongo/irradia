@@ -1,0 +1,200 @@
+/* proto-kit.js — base comune dei tre prototipi dell'issue #56.
+   SOLO per i prototipi: non è codice dell'app. Numeri: motore vero di Irradia sull'anno tipo di
+   Roma centro (fixture), tabella inclinazione 0-90° (passo 5°) × azimut 0-345° (passo 15°),
+   interpolata; kWp e perdite applicati in proporzione (approssimazione accettabile per un prototipo). */
+(function () {
+  'use strict'
+  var T = /*TABLE*/null
+  var rad = Math.PI / 180
+
+  var MONTH_ABBR = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+  var MONTH_NAMES = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+  var CARDINALS = ['Nord', 'Nord-Est', 'Est', 'Sud-Est', 'Sud', 'Sud-Ovest', 'Ovest', 'Nord-Ovest']
+
+  // Stessi limiti e passi dell'app attuale (App.tsx).
+  var LIMITS = {
+    lat: { min: 34, max: 72, step: 0.0001, decimals: 4 },
+    lon: { min: -25, max: 45, step: 0.0001, decimals: 4 },
+    tilt: { min: 0, max: 90, step: 1, decimals: 0 },
+    az: { min: 0, max: 359, step: 1, decimals: 0 },
+    count: { min: 1, max: 50, step: 1, decimals: 0 },
+    wp: { min: 100, max: 700, step: 5, decimals: 0 },
+    loss: { min: 0, max: 30, step: 0.5, decimals: 1 },
+  }
+  var state = { lat: 41.9028, lon: 12.4964, tilt: 35, az: 180, count: 10, wp: 430, loss: 14 }
+  var listeners = []
+
+  function fmt(x, decimals) {
+    return x.toLocaleString('it-IT', { minimumFractionDigits: decimals || 0, maximumFractionDigits: decimals || 0, useGrouping: 'always' })
+  }
+  function cardinal(az) {
+    var n = ((az % 360) + 360) % 360
+    return CARDINALS[Math.round(n / 45) % 8]
+  }
+
+  function estimate(s) {
+    s = s || state
+    var ti = Math.min(s.tilt / 5, T.tilts.length - 1.000001), t0 = Math.floor(ti), tf = ti - t0
+    var ai = (((s.az % 360) + 360) % 360) / 15, a0 = Math.floor(ai) % 24, a1 = (a0 + 1) % 24, af = ai - Math.floor(ai)
+    var kwp = (s.count * s.wp) / 1000, k = kwp * (1 - s.loss / 100)
+    var monthly = []
+    for (var m = 0; m < 12; m++) {
+      var lo = T.table[t0][a0][m] * (1 - af) + T.table[t0][a1][m] * af
+      var hi = T.table[t0 + 1][a0][m] * (1 - af) + T.table[t0 + 1][a1][m] * af
+      monthly.push((lo * (1 - tf) + hi * tf) * k)
+    }
+    return { kwp: kwp, monthlyKwh: monthly, annualKwh: monthly.reduce(function (a, b) { return a + b }, 0) }
+  }
+
+  function notify() { var e = estimate(state); listeners.forEach(function (fn) { fn(state, e) }) }
+  function set(key, value) {
+    var L = LIMITS[key]
+    if (!isFinite(value)) return
+    value = Math.min(L.max, Math.max(L.min, Math.round(value / L.step) * L.step))
+    value = +value.toFixed(L.decimals)
+    if (state[key] === value) return
+    state[key] = value
+    notify()
+  }
+  function subscribe(fn) { listeners.push(fn); fn(state, estimate(state)) }
+
+  /* ---------- Comandi circolari ----------
+     Inclinazione (kind 'tilt'): quarto di cerchio in alto a destra, centro (cx, cy) in basso a sinistra.
+       0° a "ore 3" (estremo basso dell'arco), 90° a "ore 12": punto = (cx + r·cos β, cy − r·sin β).
+     Orientamento (kind 'az'): cerchio completo, azimut da Nord in senso orario, Nord in alto:
+       punto = (cx + r·sin α, cy − r·cos α); 180° (Sud) nel punto più basso. */
+  function dialPoint(kind, value, cx, cy, r) {
+    return kind === 'tilt'
+      ? { x: cx + r * Math.cos(value * rad), y: cy - r * Math.sin(value * rad) }
+      : { x: cx + r * Math.sin(value * rad), y: cy - r * Math.cos(value * rad) }
+  }
+  function dialValue(kind, x, y, cx, cy) {
+    if (kind === 'tilt') {
+      var th = Math.atan2(cy - y, x - cx) / rad // -180..180, 0 = destra, 90 = alto
+      if (th >= 0 && th <= 90) return Math.round(th)
+      return th > 90 || th < -135 ? 90 : 0 // fuori dal quadrante: l'estremo più vicino
+    }
+    var az = Math.atan2(x - cx, cy - y) / rad
+    return ((Math.round(az) % 360) + 360) % 360
+  }
+  /** Collega puntatore e tastiera a un elemento SVG con role="slider". opts: {kind, key, cx, cy}. */
+  function bindDial(el, opts) {
+    var svg = el.ownerSVGElement || el
+    var L = LIMITS[opts.key]
+    el.setAttribute('role', 'slider')
+    el.setAttribute('tabindex', '0')
+    el.setAttribute('aria-valuemin', L.min)
+    el.setAttribute('aria-valuemax', L.max)
+    el.style.touchAction = 'none'
+    function fromEvent(ev) {
+      var p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY
+      var q = p.matrixTransform(svg.getScreenCTM().inverse())
+      set(opts.key, dialValue(opts.kind, q.x, q.y, opts.cx, opts.cy))
+    }
+    var dragging = false
+    el.addEventListener('pointerdown', function (ev) { dragging = true; el.setPointerCapture(ev.pointerId); el.focus(); fromEvent(ev); ev.preventDefault() })
+    el.addEventListener('pointermove', function (ev) { if (dragging) fromEvent(ev) })
+    el.addEventListener('pointerup', function () { dragging = false })
+    el.addEventListener('pointercancel', function () { dragging = false })
+    el.addEventListener('keydown', function (ev) {
+      var big = opts.kind === 'tilt' ? 10 : 45, v = state[opts.key], n
+      switch (ev.key) {
+        case 'ArrowRight': case 'ArrowUp': n = v + 1; break
+        case 'ArrowLeft': case 'ArrowDown': n = v - 1; break
+        case 'PageUp': n = v + big; break
+        case 'PageDown': n = v - big; break
+        case 'Home': n = L.min; break
+        case 'End': n = L.max; break
+        default: return
+      }
+      if (opts.kind === 'az' && ev.key !== 'Home' && ev.key !== 'End') n = ((n % 360) + 360) % 360 // l'orientamento gira
+      set(opts.key, n); ev.preventDefault()
+    })
+    subscribe(function (s) {
+      el.setAttribute('aria-valuenow', s[opts.key])
+      el.setAttribute('aria-valuetext', opts.kind === 'az' ? s.az + '°, ' + cardinal(s.az) : s.tilt + '°')
+    })
+  }
+  /** Campo di testo ↔ stato (virgola o punto come separatore decimale). */
+  function bindField(input, key) {
+    var L = LIMITS[key], editing = false
+    function show() { if (!editing) input.value = state[key].toFixed(L.decimals).replace('.', ',') }
+    input.addEventListener('input', function () {
+      editing = true
+      var v = Number(input.value.trim().replace(',', '.'))
+      var ok = input.value.trim() !== '' && isFinite(v) && v >= L.min && v <= L.max
+      input.setAttribute('aria-invalid', String(!ok))
+      if (ok) set(key, v)
+    })
+    input.addEventListener('blur', function () { editing = false; input.setAttribute('aria-invalid', 'false'); show() })
+    subscribe(show)
+  }
+  /** <input type="range"> ↔ stato. */
+  function bindRange(input, key) {
+    var L = LIMITS[key]
+    input.min = L.min; input.max = L.max; input.step = L.step
+    input.addEventListener('input', function () { set(key, input.valueAsNumber) })
+    subscribe(function (s) { input.value = s[key] })
+  }
+
+  /* ---------- Anteprima 3D: proiezione ortografica calcolata a mano ----------
+     Mondo: x = Est, y = Nord, z = alto (metri). Osservatore a Sud, sollevato di `elev` gradi:
+     Sud in basso/vicino, Nord in alto/lontano, Est a destra (come la mappa e il comando dell'orientamento).
+     schermo: X = ox + s·f·x,  Y = oy − s·f·(y·sin(elev) + z·cos(elev)),
+     con f = 1 (assonometria) oppure, con o.distance (metri), f = D/(D + profondità): prospettiva leggera. */
+  function projectScene(tilt, az, o) {
+    o = Object.assign({}, o || {}, window.PROTO_SCENE_OVERRIDE || {}) // solo per i confronti della sessione principale
+    var s = o.scale || 60, ox = o.ox || 0, oy = o.oy || 0, elev = (o.elev == null ? 28 : o.elev) * rad
+    var w = o.panelW || 1.13, h = o.panelH || 1.72, clr = o.clearance == null ? 0.25 : o.clearance, R = o.groundR || 1.5
+    var cols = o.cols || 6, rows = o.rows || 10
+    var b = tilt * rad, a = az * rad
+    var u = [Math.cos(a), -Math.sin(a), 0]
+    var v = [-Math.cos(b) * Math.sin(a), -Math.cos(b) * Math.cos(a), Math.sin(b)]
+    var n = [Math.sin(b) * Math.sin(a), Math.sin(b) * Math.cos(a), Math.cos(b)]
+    var c = [0, 0, clr + (h / 2) * Math.sin(b)]
+    var D = o.distance || Infinity
+    // o.yaw (gradi, predefinito 0): l'osservatore si sposta da Sud verso Est (positivo) o verso Ovest (negativo).
+    // Con yaw = 0 il Nord è esattamente in alto come sulla mappa; con yaw ≠ 0 la rosa dei venti ruota con la scena.
+    var yaw = (o.yaw || 0) * rad, cy_ = Math.cos(yaw), sy_ = Math.sin(yaw)
+    function Rz(p) { return [p[0] * cy_ + p[1] * sy_, -p[0] * sy_ + p[1] * cy_, p[2]] }
+    function P(q) {
+      var p = Rz(q)
+      var depth = p[1] * Math.cos(elev) - p[2] * Math.sin(elev) // > 0 = più lontano dall'osservatore
+      var f = D === Infinity ? 1 : D / (D + depth)
+      return { x: ox + s * f * p[0], y: oy - s * f * (p[1] * Math.sin(elev) + p[2] * Math.cos(elev)) }
+    }
+    function W(i, j) { return [c[0] + i * (w / 2) * u[0] + j * (h / 2) * v[0], c[1] + i * (w / 2) * u[1] + j * (h / 2) * v[1], c[2] + i * (w / 2) * u[2] + j * (h / 2) * v[2]] }
+    var corners = [W(-1, -1), W(1, -1), W(1, 1), W(-1, 1)] // basso-sx, basso-dx, alto-dx, alto-sx (lungo la pendenza)
+    var grid = [], i
+    for (i = 1; i < cols; i++) grid.push([P(W(-1 + (2 * i) / cols, -1)), P(W(-1 + (2 * i) / cols, 1))])
+    for (i = 1; i < rows; i++) grid.push([P(W(-1, -1 + (2 * i) / rows)), P(W(1, -1 + (2 * i) / rows))])
+    function G(azDeg, r) { return P([r * Math.sin(azDeg * rad), r * Math.cos(azDeg * rad), 0]) }
+    return {
+      panel: corners.map(P),
+      /** true = si vede la faccia con le celle; false = si vede il retro. */
+      front: -Rz(n)[1] * Math.cos(elev) + Rz(n)[2] * Math.sin(elev) > 0,
+      grid: grid,
+      /** Proiezione verticale del pannello sul terreno (NON è l'ombra del sole). */
+      footprint: corners.map(function (p) { return P([p[0], p[1], 0]) }),
+      /** Sostegni verticali: da ogni angolo al terreno ([alto, terreno]); i primi due sono quelli del bordo basso. */
+      posts: corners.map(function (p) { return [P(p), P([p[0], p[1], 0])] }),
+      /** Ellisse del disco di terreno: esatta solo senza prospettiva (o.distance assente). */
+      ground: { cx: ox, cy: oy, rx: s * R, ry: s * R * Math.sin(elev) },
+      /** Disco di terreno come poligono (72 punti): vale anche con la prospettiva. */
+      groundPoly: Array.from({ length: 72 }, function (_, k) { return G(k * 5, R) }),
+      /** Punto sul terreno a un dato azimut e raggio (m): per rosa dei venti, tacche, freccia della direzione. */
+      groundPoint: G,
+      compass: { N: G(0, R * 1.14), E: G(90, R * 1.14), S: G(180, R * 1.14), O: G(270, R * 1.14) },
+      /** Direzione verso cui guarda il pannello, sul terreno: dal centro al bordo del disco. */
+      facing: [G(0, 0), G(az, R)],
+    }
+  }
+  function pts(arr) { return arr.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1) }).join(' ') }
+
+  window.ProtoKit = {
+    state: state, set: set, subscribe: subscribe, estimate: estimate, LIMITS: LIMITS,
+    fmt: fmt, cardinal: cardinal, MONTH_ABBR: MONTH_ABBR, MONTH_NAMES: MONTH_NAMES, meta: T.meta,
+    dialPoint: dialPoint, dialValue: dialValue, bindDial: bindDial, bindField: bindField, bindRange: bindRange,
+    projectScene: projectScene, pts: pts,
+  }
+})()
