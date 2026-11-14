@@ -7,6 +7,7 @@ import LocationMap from './ui/LocationMap'
 import MonthlyChart from './ui/MonthlyChart'
 import NumberSlider from './ui/NumberSlider'
 import SiteFooter from './ui/SiteFooter'
+import StaleResults from './ui/StaleResults'
 import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
 import { describeTmyError } from './ui/errorMessage'
 import { cardinalDirection, formatNumber } from './ui/format'
@@ -147,7 +148,7 @@ export default function App() {
           {simulation && 'error' in simulation && <p className="status error">{simulation.error}</p>}
 
           {simulation && 'year' in simulation && tmy && (
-            <div className={stale ? 'stale' : undefined}>
+            <StaleResults stale={stale}>
               <AnnualTotal
                 annualKwh={simulation.year.annualKwh}
                 peakPowerKwp={simulation.year.peakPowerKwp}
@@ -166,7 +167,7 @@ export default function App() {
               </p>
 
               <EstimateMethod usesHorizon={tmy.usesHorizon} yearMin={tmy.yearMin} yearMax={tmy.yearMax} />
-            </div>
+            </StaleResults>
           )}
         </section>
       </div>

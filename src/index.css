@@ -101,8 +101,44 @@ input[aria-invalid='true'] { border-color: var(--error); }
 .status { margin: 0 0 16px; color: var(--muted); }
 .error { color: var(--error); }
 
-/* Risultati della posizione precedente mentre si scaricano quelli nuovi. */
-.stale { opacity: 0.45; transition: opacity 0.2s; }
+/* Risultati della posizione precedente (attesa, download, errore; issue #42).
+   NIENTE opacità: moltiplicava giù tutto l'albero e portava testi (--fg 2,82:1 chiaro, 3,98:1 scuro;
+   --muted 1,87:1 e 2,28:1) e barre sotto WCAG 1.4.3 / 1.4.11. Lo stato è dato da forma e parole, non
+   dal solo colore (WCAG 1.4.1): cornice tratteggiata 2 px in --muted (5,12:1 chiaro, 6,28:1 scuro su
+   --bg), etichetta in --fg (16,15:1 / 14,99:1) sul bordo superiore come la legenda di un fieldset,
+   numero grande del totale in --muted. Tutto il resto (altri testi, barre, anello di focus) resta
+   al contrasto dello stato normale.
+   Lo spazio della cornice è sempre riservato (bordo trasparente quando i dati sono aggiornati):
+   nessuno spostamento tra i due stati. L'etichetta sta sul bordo e il padding alto (18 px) è più
+   grande della sua metà sporgente: non copre la prima riga, nemmeno a 360 px (va a capo
+   restando nella cornice, che cresce solo quando i dati sono non aggiornati).
+   Nessuna transizione: una dissolvenza del bordo da trasparente passerebbe per contrasti bassi. */
+.stale-results {
+  position: relative;
+  padding: 18px 12px 12px;
+  border: 2px dashed transparent;
+  border-radius: 6px;
+}
+.stale-results.is-stale { border-color: var(--muted); }
+.stale-label {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  max-width: calc(100% - 20px);
+  transform: translateY(-50%);
+  padding: 0 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.3;
+}
+.stale-results.is-stale .hero { color: var(--muted); }
+/* forced-colors: il browser impone i colori ma non cambia lo stile del bordo: resta tratteggiato,
+   in colore di sistema; etichetta con Canvas/CanvasText. Il totale diventa CanvasText (accettato). */
+@media (forced-colors: active) {
+  .stale-results.is-stale { border-color: CanvasText; }
+  .stale-label { background: Canvas; color: CanvasText; }
+}
 
 .hero-label { margin: 0; color: var(--muted); }
 .hero { margin: 0; font-size: 56px; font-weight: 600; line-height: 1.1; }
@@ -199,7 +235,7 @@ input[aria-invalid='true'] { border-color: var(--error); }
   .sticky-short { white-space: nowrap; }
 }
 
-/* Barra fissa: numero del totale precedente (aggiornamento o errore), attenuato come `.stale`. */
+/* Barra fissa: numero del totale precedente (aggiornamento o errore), in colore secondario come `.stale-results.is-stale .hero`. */
 @media (max-width: 819px) {
   .sticky-old { color: var(--muted); }
 }
