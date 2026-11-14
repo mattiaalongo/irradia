@@ -485,12 +485,9 @@ test.describe('touch-action', () => {
 test.describe('tocco', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 800 } })
 
-  // DIFETTO NOTO (da segnalare come issue, tipo bug): con un tocco vero (eventi touch) lo slider nativo trasparente
-  // gestisce il tocco per conto suo e, DOPO il pointerdown che imposta il valore giusto, emette un evento `input`
-  // con il valore calcolato dalla sola x (tocco a destra della bussola: atteso 90, ottenuto 281). Il mouse non è
-  // interessato. Quando il difetto sarà corretto, questa prova inizierà a passare e `test.fail` la farà
-  // fallire: allora va tolto.
-  test.fail('un tocco sul comando imposta il valore; un tocco subito fuori non lo cambia (DIFETTO: input nativo da tocco)', async ({ page, pvgis }) => {
+  // Difetto trovato e corretto nella PR del #56: lo slider nativo trasparente gestiva il tocco per conto suo e, dopo il
+  // pointerdown che impostava il valore giusto, emetteva un `input` calcolato dalla sola x (tocco a Est: 281 invece di 90).
+  test('un tocco sul comando imposta il valore; un tocco subito fuori non lo cambia', async ({ page, pvgis }) => {
     await orologioFermo(page)
     await avvio(page, pvgis)
     const s = azimut(page)

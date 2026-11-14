@@ -14,7 +14,7 @@
  * Geometria e tasti: `dialGeometry.ts` (testati a parte).
  */
 
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import './dial.css'
 import {
   AZIMUTH_MAX, AZIMUTH_MIN, TILT_MAX, TILT_MIN,
@@ -29,6 +29,9 @@ const TILT = { cx: 24, cy: 176, r: 128 } as const
 /** Bussola: centro al centro, raggio 64 (le lettere stanno fuori dal cerchio). */
 const AZIMUTH = { cx: 100, cy: 100, r: 64 } as const
 const CARDINALS: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'O' }
+
+/** Il punto (x, y) dello schermo cade dentro il rettangolo. */
+const insideRect = (r: DOMRect, x: number, y: number) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
 
 const f1 = (n: number) => (Math.round(n * 10) / 10).toString()
 
@@ -60,9 +63,32 @@ export interface AngleDialProps {
 export default function AngleDial({ kind, label, value, onChange, hint }: AngleDialProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const dragging = useRef(false)
+  /** Istante (ms) dell'ultimo evento del puntatore: i `change` nativi subito dopo un gesto vanno ignorati. */
+  const lastGesture = useRef(0)
   const g = kind === 'tilt' ? TILT : AZIMUTH
   const min = kind === 'tilt' ? TILT_MIN : AZIMUTH_MIN
   const max = kind === 'tilt' ? TILT_MAX : AZIMUTH_MAX
+
+  // Al tocco il browser gestisce lo slider nativo da solo (valore dalla sola x) e il suo evento
+  // `input` sovrascriverebbe il valore giusto, calcolato da noi sull'angolo (`preventDefault` sul
+  // solo `pointerdown` non lo ferma). React registra `touchstart` come passivo, quindi il listener
+  // non passivo va aggiunto a mano: `preventDefault` toglie al browser la gestione nativa del tocco.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    // Il browser "aggiusta" i tocchi vicini a un elemento e li attribuisce a lui: si ignorano quelli fuori dal riquadro.
+    const stop = (e: TouchEvent) => {
+      const t = e.touches[0] ?? e.changedTouches[0]
+      if (t && !insideRect(el.getBoundingClientRect(), t.clientX, t.clientY)) return
+      if (e.cancelable) e.preventDefault()
+    }
+    el.addEventListener('touchstart', stop, { passive: false })
+    el.addEventListener('touchmove', stop, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', stop)
+      el.removeEventListener('touchmove', stop)
+    }
+  }, [])
 
   /** Valore indicato dal puntatore: coordinate dello schermo → unità SVG (il comando è quadrato). */
   function update(e: PointerEvent<HTMLInputElement>) {
@@ -99,20 +125,29 @@ export default function AngleDial({ kind, label, value, onChange, hint }: AngleD
             value={value}
             aria-label={`${label} (slider)`}
             aria-valuetext={dialValueText(kind, value)}
-            onChange={(e) => onChange(e.target.valueAsNumber)}
+            onChange={(e) => {
+              // Cintura e bretelle: un `input` nativo VERO durante o subito dopo un gesto del puntatore
+              // è il calcolo dello slider (solo x), non il nostro. Quelli da tastiera e da tecnologie
+              // assistive (lontani da un gesto) e quelli sintetici (`fill`) passano.
+              if (e.nativeEvent.isTrusted && (dragging.current || Date.now() - lastGesture.current < 400)) return
+              onChange(e.target.valueAsNumber)
+            }}
             onKeyDown={onKeyDown}
             onPointerDown={(e) => {
               if (e.pointerType === 'mouse' && e.button !== 0) return
+              if (!insideRect(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY)) return
               // Niente comportamento nativo dello slider (che leggerebbe solo la x): si guida tutto da qui.
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)
               e.currentTarget.focus({ preventScroll: true })
               dragging.current = true
+              lastGesture.current = Date.now()
               update(e)
             }}
-            onPointerMove={(e) => { if (dragging.current) update(e) }}
+            onPointerMove={(e) => { if (dragging.current) { lastGesture.current = Date.now(); update(e) } }}
             onPointerUp={(e) => {
               dragging.current = false
+              lastGesture.current = Date.now()
               if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
             }}
             onPointerCancel={() => { dragging.current = false }}

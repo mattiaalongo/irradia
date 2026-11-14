@@ -191,6 +191,8 @@ h2 { font: 600 20px/1.2 var(--font-num); }
 @media (min-width: 370px) and (max-width: 1099px) { .angle-dial .fld > label { min-height: 2.6em; } }
 
 .status { margin: 0 0 30px; color: var(--ink2); }
+/* Messaggio lungo senza spazi (es. dettaglio tecnico di un errore): va a capo invece di allargare la pagina. */
+.status, .error { overflow-wrap: anywhere; }
 .error { color: var(--error); }
 
 /* Risultati della posizione precedente (attesa, download, errore; issue #42).

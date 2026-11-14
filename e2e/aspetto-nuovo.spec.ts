@@ -244,7 +244,7 @@ test.describe('PVGIS in errore con i nuovi stili', () => {
   ]
   for (const larghezza of [320, 360]) {
     for (const caso of CASI) {
-      const prova = caso.difetto ? test.fail : test
+      const prova = test // il difetto del messaggio senza spazi è stato corretto (overflow-wrap)
       prova(`${larghezza} px: messaggio lungo ${caso.nome} dentro la finestra, comandi ancora usabili`, async ({ page, pvgis, consoleGuard }) => {
         consoleGuard.allow(/Failed to load resource/)
         await page.setViewportSize({ width: larghezza, height: 800 })
