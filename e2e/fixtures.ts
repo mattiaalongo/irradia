@@ -180,7 +180,31 @@ export class ConsoleGuard {
   }
 }
 
-export const test = base.extend<{ pvgis: PvgisMock; tiles: TileMock; consoleGuard: ConsoleGuard }>({
+/** Aspetto della pagina (issue #56): "a" predefinito, "b" «Giornata di sole». Stesso nome e valori di src/ui/look.ts. */
+export type LookOption = 'a' | 'b'
+
+export const test = base.extend<{ pvgis: PvgisMock; tiles: TileMock; consoleGuard: ConsoleGuard; look: LookOption }>({
+  // Opzione del PROGETTO (playwright.config.ts: `use: { look: 'b' }`), predefinita "a". Le prove che
+  // dipendono dall'aspetto la leggono per adattare le attese; le altre la ignorano.
+  look: ['a', { option: true }],
+
+  // Con look "b" scrive la scelta nella memoria del browser PRIMA che la pagina parta, come farebbe
+  // l'interruttore: l'app la legge all'avvio (`irradia.look`). Vale per l'origine della pagina, quindi
+  // anche con PW_PORT diverse. try/catch: su about:blank `localStorage` lancia. Si rilancia a ogni
+  // navigazione (anche dopo un ricaricamento), come una scelta già salvata.
+  page: async ({ page, look }, use) => {
+    if (look === 'b') {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('irradia.look', 'b')
+        } catch {
+          /* pagina senza memoria (about:blank): niente da fare */
+        }
+      })
+    }
+    await use(page)
+  },
+
   pvgis: [
     async ({ page }, use) => {
       const mock = new PvgisMock()
