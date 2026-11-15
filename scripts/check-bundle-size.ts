@@ -23,8 +23,10 @@ import { gzipSync } from 'node:zlib'
 // UNICO posto in cui vive questo numero. Storia: alzato da 80 a 82 l'11/11/2026
 // con #26 (decisione del PO); confermato il 12/11/2026 con #37, misurato con
 // gzip di Node (~1 % sotto il numero di Vite); alzato da 82 a 85 il 14/11/2026
-// con il nuovo aspetto (#56, decisione del PO). Per cambiarlo serve il PO.
-export const INITIAL_JS_LIMIT_KB = 85
+// con il nuovo aspetto (#56, decisione del PO); alzato da 85 a 87 il 14/11/2026
+// con l'aspetto B «Giornata di sole» e il suo interruttore (#56 parte 2, decisione
+// del PO). Per cambiarlo serve il PO.
+export const INITIAL_JS_LIMIT_KB = 87
 
 /** Attributi di un tag, con nomi in minuscolo; accetta "doppi", 'singoli' o senza apici. */
 function parseAttributes(tag: string): Map<string, string> {

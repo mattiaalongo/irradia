@@ -8,12 +8,13 @@ import LocationMap from './ui/LocationMap'
 import MonthlyChart from './ui/MonthlyChart'
 import NumberField from './ui/NumberField'
 import NumberSlider from './ui/NumberSlider'
-import PanelPreview from './ui/PanelPreview'
+import LookSwitch from './ui/LookSwitch'
+import PageLayout, { type PageParts } from './ui/PageLayout'
 import SiteFooter from './ui/SiteFooter'
-import StaleResults from './ui/StaleResults'
 import StickyTotal, { type StickyTotalState } from './ui/StickyTotal'
 import { describeTmyError } from './ui/errorMessage'
 import { cardinalDirection, formatNumber } from './ui/format'
+import { applyLook, browserStorage, DEFAULT_LOOK, storeLook, type Look } from './ui/look'
 import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from './ui/mapArea'
 import { shadingNote } from './ui/sourceNote'
 import { useTmy } from './ui/useTmy'
@@ -36,7 +37,15 @@ function runSimulation(
   }
 }
 
-export default function App() {
+export default function App({ initialLook = DEFAULT_LOOK }: { initialLook?: Look }) {
+  // Aspetto della pagina (#56 parte 2): letto e applicato a <html> in main.tsx prima del primo disegno.
+  const [look, setLook] = useState<Look>(initialLook)
+  const changeLook = (next: Look) => {
+    setLook(next)
+    applyLook(document.documentElement, next)
+    storeLook(browserStorage(), next)
+  }
+
   // Posizione: è l'UNICO ingresso del download dei dati PVGIS (vedi useTmy).
   const [latitude, setLatitude] = useState(41.9028) // Roma centro, come le fixture dei test
   const [longitude, setLongitude] = useState(12.4964)
@@ -90,98 +99,112 @@ export default function App() {
   else if (tmyState.status === 'loading') sticky = { kind: 'loading' }
   else sticky = { kind: 'error', shortError: errorText?.short }
 
+  // Ogni pezzo è costruito UNA volta; PageLayout (ui/PageLayout.tsx) decide solo dove metterlo.
+  const hasResults = Boolean(simulation && 'year' in simulation && tmy)
+  const parts: PageParts = {
+    tiltDeg,
+    azimuthDeg,
+    // I comandi leggono il valore IMMEDIATO (tiltDeg, azimuthDeg), non quello differito del calcolo.
+    dials: (
+      <div className="dials">
+        <AngleDial kind="tilt" label="Inclinazione" value={tiltDeg} onChange={setTiltDeg}
+          hint={(v) => (v === 0 ? 'Piatti' : v === 90 ? 'Verticali' : '0° = piatti, 90° = verticali')} />
+        <AngleDial kind="azimuth" label="Orientamento (azimut da Nord)" value={azimuthDeg} onChange={setAzimuthDeg}
+          hint={(v) => `Verso ${cardinalDirection(v)}`} />
+      </div>
+    ),
+    location: (
+      <>
+        {/* Una sola chiamata: le due coordinate cambiano insieme, quindi un solo download. */}
+        <LocationMap
+          latitude={latitude}
+          longitude={longitude}
+          onChange={(lat, lon) => {
+            setLatitude(lat)
+            setLongitude(lon)
+          }}
+        />
+        <div className="row2">
+          <NumberField label="Latitudine (Nord)" unit="°" value={latitude} onChange={setLatitude}
+            min={AREA_MIN_LAT} max={AREA_MAX_LAT} step={0.0001} decimals={4} />
+          <NumberField label="Longitudine (Est)" unit="°" value={longitude} onChange={setLongitude}
+            min={AREA_MIN_LON} max={AREA_MAX_LON} step={0.0001} decimals={4} />
+        </div>
+      </>
+    ),
+    sliders: (
+      <>
+        <NumberSlider label="Numero di pannelli" value={panelCount} onChange={setPanelCount}
+          min={1} max={50} step={1} />
+        <NumberSlider label="Potenza di un pannello" unit="Wp" value={panelPowerWp} onChange={setPanelPowerWp}
+          min={100} max={700} step={5} />
+        <NumberSlider label="Perdite di sistema" unit="%" value={systemLossPct} onChange={setSystemLossPct}
+          min={0} max={30} step={0.5} decimals={1} hint={() => `Inverter, cavi, sporcizia… PVGIS suggerisce ${DEFAULT_SYSTEM_LOSS_PCT} %`} />
+      </>
+    ),
+    resultsRef,
+    resultsBusy: tmyState.status === 'loading',
+    messages: (
+      <>
+        {tmyState.status === 'loading' && <p className="status">Scarico l'anno tipo da PVGIS…</p>}
+        {errorText && (
+          <p className="status error" role="alert">
+            {errorText.message}
+            {errorText.detail ? ` ${errorText.detail}` : ''}
+            {tmy ? ' I valori mostrati sono quelli della posizione precedente.' : ''}
+          </p>
+        )}
+
+        {showRetry && (
+          <button type="button" className="reload-button retry-button" ref={retryButtonRef}
+            aria-disabled={retrying} onClick={() => { if (!retrying) retry() }}>
+            Riprova
+          </button>
+        )}
+
+        {simulation && 'error' in simulation && <p className="status error">{simulation.error}</p>}
+      </>
+    ),
+    hasResults,
+    stale,
+    total: simulation && 'year' in simulation && (
+      <AnnualTotal
+        annualKwh={simulation.year.annualKwh}
+        peakPowerKwp={simulation.year.peakPowerKwp}
+        panelCount={simulation.system.panelCount}
+        panelPowerWp={simulation.system.panelPowerWp}
+      />
+    ),
+    details: simulation && 'year' in simulation && tmy && (
+      <>
+        <div className="sheet chartsheet">
+          <h2>Produzione mese per mese (kWh)</h2>
+          <MonthlyChart monthlyKwh={simulation.year.monthlyKwh} />
+        </div>
+
+        <p className="source">
+          Dati: anno meteorologico tipo PVGIS (JRC, Commissione Europea), {tmy.radiationDb} e {tmy.meteoDb},
+          mesi scelti tra il {tmy.yearMin} e il {tmy.yearMax}; punto {formatNumber(tmy.latitude, 4)}° N,{' '}
+          {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.
+          {shadingNote(tmy.usesHorizon)}
+        </p>
+
+        <EstimateMethod usesHorizon={tmy.usesHorizon} yearMin={tmy.yearMin} yearMax={tmy.yearMax} />
+      </>
+    ),
+  }
+
   return (
     <main>
+      {/* L'intestazione (con l'interruttore) è nello stesso punto dell'albero in entrambi gli aspetti:
+          il radio scelto non viene rimontato e resta a fuoco dopo il cambio. */}
       <header>
         <h1>Irradia</h1>
         <p className="subtitle">Stima della produzione di un impianto fotovoltaico</p>
+        <LookSwitch look={look} onChange={changeLook} />
       </header>
 
-      <div className="layout">
-        <section className="params" aria-label="Parametri">
-          <fieldset>
-            <legend>Posizione</legend>
-            {/* Una sola chiamata: le due coordinate cambiano insieme, quindi un solo download. */}
-            <LocationMap
-              latitude={latitude}
-              longitude={longitude}
-              onChange={(lat, lon) => {
-                setLatitude(lat)
-                setLongitude(lon)
-              }}
-            />
-            <div className="row2">
-              <NumberField label="Latitudine (Nord)" unit="°" value={latitude} onChange={setLatitude}
-                min={AREA_MIN_LAT} max={AREA_MAX_LAT} step={0.0001} decimals={4} />
-              <NumberField label="Longitudine (Est)" unit="°" value={longitude} onChange={setLongitude}
-                min={AREA_MIN_LON} max={AREA_MAX_LON} step={0.0001} decimals={4} />
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Pannelli</legend>
-            {/* L'anteprima e i comandi leggono il valore IMMEDIATO (tiltDeg, azimuthDeg), non quello differito del calcolo. */}
-            <PanelPreview tiltDeg={tiltDeg} azimuthDeg={azimuthDeg} />
-            <div className="dials">
-              <AngleDial kind="tilt" label="Inclinazione" value={tiltDeg} onChange={setTiltDeg}
-                hint={(v) => (v === 0 ? 'Piatti' : v === 90 ? 'Verticali' : '0° = piatti, 90° = verticali')} />
-              <AngleDial kind="azimuth" label="Orientamento (azimut da Nord)" value={azimuthDeg} onChange={setAzimuthDeg}
-                hint={(v) => `Verso ${cardinalDirection(v)}`} />
-            </div>
-            <NumberSlider label="Numero di pannelli" value={panelCount} onChange={setPanelCount}
-              min={1} max={50} step={1} />
-            <NumberSlider label="Potenza di un pannello" unit="Wp" value={panelPowerWp} onChange={setPanelPowerWp}
-              min={100} max={700} step={5} />
-            <NumberSlider label="Perdite di sistema" unit="%" value={systemLossPct} onChange={setSystemLossPct}
-              min={0} max={30} step={0.5} decimals={1} hint={() => `Inverter, cavi, sporcizia… PVGIS suggerisce ${DEFAULT_SYSTEM_LOSS_PCT} %`} />
-          </fieldset>
-        </section>
-
-        <section className="results" aria-label="Risultati" ref={resultsRef} tabIndex={-1} aria-busy={tmyState.status === 'loading'}>
-          {tmyState.status === 'loading' && <p className="status">Scarico l'anno tipo da PVGIS…</p>}
-          {errorText && (
-            <p className="status error" role="alert">
-              {errorText.message}
-              {errorText.detail ? ` ${errorText.detail}` : ''}
-              {tmy ? ' I valori mostrati sono quelli della posizione precedente.' : ''}
-            </p>
-          )}
-
-          {showRetry && (
-            <button type="button" className="reload-button retry-button" ref={retryButtonRef}
-              aria-disabled={retrying} onClick={() => { if (!retrying) retry() }}>
-              Riprova
-            </button>
-          )}
-
-          {simulation && 'error' in simulation && <p className="status error">{simulation.error}</p>}
-
-          {simulation && 'year' in simulation && tmy && (
-            <StaleResults stale={stale}>
-              <AnnualTotal
-                annualKwh={simulation.year.annualKwh}
-                peakPowerKwp={simulation.year.peakPowerKwp}
-                panelCount={simulation.system.panelCount}
-                panelPowerWp={simulation.system.panelPowerWp}
-              />
-
-              <div className="sheet chartsheet">
-                <h2>Produzione mese per mese (kWh)</h2>
-                <MonthlyChart monthlyKwh={simulation.year.monthlyKwh} />
-              </div>
-
-              <p className="source">
-                Dati: anno meteorologico tipo PVGIS (JRC, Commissione Europea), {tmy.radiationDb} e {tmy.meteoDb},
-                mesi scelti tra il {tmy.yearMin} e il {tmy.yearMax}; punto {formatNumber(tmy.latitude, 4)}° N,{' '}
-                {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.
-                {shadingNote(tmy.usesHorizon)}
-              </p>
-
-              <EstimateMethod usesHorizon={tmy.usesHorizon} yearMin={tmy.yearMin} yearMax={tmy.yearMax} />
-            </StaleResults>
-          )}
-        </section>
-      </div>
+      <PageLayout look={look} parts={parts} />
 
       <SiteFooter />
 

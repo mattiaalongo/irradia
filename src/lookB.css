@@ -1,0 +1,237 @@
+/*
+ * Aspetto B «Giornata di sole» (issue #56, parte 2; prototipo approvato dal PO il 14/11/2026).
+ * TUTTE le regole hanno il prefisso [data-look='b'] (attributo su <html>, vedi ui/look.ts): in A non
+ * cambia nulla. Prima i colori, come variabili che sostituiscono quelle di A (stessi nomi, così
+ * dial.css, map.css, panelPreview.css e il resto funzionano senza modifiche), poi le regole.
+ *
+ * Idea: la pagina si apre con una scena (cielo con sfumatura, pannello grande, totale, comandi
+ * circolari); sotto una pagina calma a due colonne. Giallo-sole solo per ciò che si tocca.
+ * Contrasti (WCAG 2.x) misurati sui colori calcolati dal browser, anche sui due estremi della
+ * sfumatura: vedi e2e/aspetto-b.spec.ts e il rapporto della PR.
+ */
+
+/* Figtree variabile (licenza OFL-1.1), sottoinsieme latin, file locale. Si scarica solo quando un
+   elemento lo usa, cioè solo con data-look="b" (in A nessuna regola lo nomina). */
+@font-face { font-family: 'Figtree'; font-weight: 300 900; font-style: normal; font-display: swap; src: url('./assets/fonts/figtree-latin-wght-normal.woff2') format('woff2'); }
+
+:root[data-look='b'] {
+  --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-num: var(--font);
+  --switch-radius: 999px;
+
+  --sky-top: #b7d8f4; --sky-bot: #e7f3fc;
+  --paper: #f5f9fd; --sheet: #ffffff; --face: #ffffff;
+  --ink: #0e2a4a; --ink2: #40566f;
+  --line: #5a7391;            /* bordo dei campi */
+  --hair: #c3d4e6;            /* filetti decorativi */
+  --track: #52698a;           /* parte vuota di archi e slider */
+  --signal: #ffc83d;          /* giallo-sole: solo ciò che si tocca */
+  --on-signal: #0e2a4a;
+  --thumb-edge: #0e2a4a;
+  --error: #b3261e;
+  --bar: #2a62b8;             /* barre, parte piena di archi e slider */
+  --link: #1c4a8a;
+  --section: #173f78; --cell: #173f78; --cell-line: #6f98d2; --edge: #0e2a4a;
+  --ground: #d6e5c9; --ground-edge: #5f7a4f; --back: #aebccd;
+  --plate: #0e2a4a; --plate-ink: #ffffff; --plate-mute: #c3d4ea; --plate-error: #ffb4a8;
+  --scene-error: #9c1c14;     /* errore sul cielo (--error sul cielo scenderebbe a 4,4:1) */
+  --focus-ring: #0e2a4a;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-look='b'] {
+    --sky-top: #0a1738; --sky-bot: #27488a;
+    --paper: #0b1530; --sheet: #142447; --face: #142447;
+    --ink: #eaf1fb; --ink2: #a9bcd8;
+    --line: #7a93b8; --hair: #2b4072; --track: #8aa2c6;
+    --signal: #ffd25a; --on-signal: #0b1530; --thumb-edge: #0b1530;
+    --error: #ff9a90;
+    --bar: #7db4f2; --link: #a9c9f2;
+    --section: #a9c9f2; --cell: #3b73c4; --cell-line: #a9c9f2; --edge: #eaf1fb;
+    --ground: #1c3a46; --ground-edge: #9ec6a6; --back: #5d7396;
+    --plate: #1b3470; --plate-ink: #eaf1fb; --plate-mute: #bdd0ee; --plate-error: #ffb4a8;
+    --scene-error: #ffb4a8;
+    --focus-ring: #ffffff;
+  }
+}
+
+[data-look='b'] body { font-variant-numeric: tabular-nums lining-nums; }
+
+/* ===== Pagina: griglia a tre colonne, il cielo è un elemento che copre intestazione e scena ===== */
+[data-look='b'] main {
+  max-width: none;
+  padding: 0 0 32px;
+  display: grid;
+  grid-template-columns: minmax(16px, 1fr) minmax(0, 1116px) minmax(16px, 1fr);
+}
+@media (min-width: 820px) { [data-look='b'] main { grid-template-columns: minmax(32px, 1fr) minmax(0, 1116px) minmax(32px, 1fr); } }
+[data-look='b'] main > * { grid-column: 2; min-width: 0; }
+/* Il cielo: sfumatura sulle righe 1-2 (intestazione + scena), bordo inferiore morbido. */
+[data-look='b'] main::before {
+  content: '';
+  grid-column: 1 / -1;
+  grid-row: 1 / 3;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bot));
+  border-radius: 0 0 40px 40px;
+}
+@media (max-width: 819.98px) {
+  [data-look='b'] main::before { border-radius: 0 0 28px 28px; }
+  [data-look='b'] main { padding-bottom: calc(32px + var(--sticky-h) + env(safe-area-inset-bottom)); }
+}
+
+/* Intestazione */
+[data-look='b'] header { grid-row: 1; border-bottom: 0; padding: 20px 0 0; }
+[data-look='b'] h1 { font: 800 clamp(28px, 5vw, 34px)/1.1 var(--font); letter-spacing: -0.01em; }
+[data-look='b'] .subtitle { font-size: 15px; margin-top: 2px; }
+[data-look='b'] .look-options { background: var(--sheet); }
+@media (min-width: 820px) { [data-look='b'] header { padding-top: 22px; } }
+
+/* ===== Scena ===== */
+[data-look='b'] .scene { grid-row: 2; margin-top: 6px; padding-bottom: 28px; align-items: start; }
+@media (min-width: 820px) {
+  [data-look='b'] .scene { padding-bottom: 40px; margin-top: 0; align-items: center; column-gap: 40px; }
+}
+[data-look='b'] .panel-preview-b { background: none; border: 0; border-radius: 0; }
+[data-look='b'] .panel-preview-b svg { overflow: hidden; }
+@media (max-width: 819.98px) { [data-look='b'] .panel-preview-b { margin: 0 -8px; } }
+
+/* Disegno del pannello su disco di terreno (né sole né ombre: l'impronta è la proiezione verticale). */
+[data-look='b'] .pp-ground { fill: var(--ground); stroke: var(--ground-edge); stroke-width: 1.5; }
+[data-look='b'] .pp-ticks { stroke: var(--ground-edge); stroke-width: 2; }
+[data-look='b'] .pp-letter { fill: var(--ink2); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--sky-bot); stroke-width: 4px; stroke-linejoin: round; }
+[data-look='b'] .pp-footprint { fill: var(--ground-edge); fill-opacity: 0.25; stroke: none; }
+[data-look='b'] .pp-facing { stroke: var(--bar); stroke-width: 3; stroke-dasharray: 0.1 7; stroke-linecap: round; }
+[data-look='b'] .pp-arrow { fill: var(--bar); }
+[data-look='b'] .pp-post { stroke: var(--edge); stroke-width: 2.4; }
+[data-look='b'] .pp-foot { fill: var(--edge); }
+[data-look='b'] .pp-hatch { stroke: var(--edge); }
+
+/* Totale: direttamente sul cielo, senza targa. */
+[data-look='b'] .readout { background: none; border: 0; border-radius: 0; padding: 0; color: var(--ink); }
+[data-look='b'] .hero-label { font-size: 16px; font-weight: 600; color: var(--ink); }
+[data-look='b'] .hero { font: 800 clamp(46px, 13vw, 76px)/1.02 var(--font); letter-spacing: -0.025em; margin-top: 2px; color: var(--ink); }
+[data-look='b'] .hero-unit { font-size: 0.38em; font-weight: 700; color: var(--ink); margin-left: 0.15em; letter-spacing: 0; }
+[data-look='b'] .hero-detail { font-size: 16px; color: var(--ink); margin-top: 4px; }
+[data-look='b'] .hero-note { margin-top: 10px; max-width: 46ch; font-size: 14px; color: var(--ink2); }
+@media (max-width: 480px) { [data-look='b'] .hero-note { font-size: 13.5px; } }
+/* Messaggi di download/errore sulla scena. */
+[data-look='b'] .status { margin-bottom: 30px; }
+[data-look='b'] .scene .error { color: var(--scene-error, var(--error)); font-weight: 600; }
+
+/* #42 «Valori della posizione precedente» in B: cornice tratteggiata 2 px in --ink2 (≥ 4,5:1 sul cielo),
+   etichetta come un'etichetta-pillola con fondo pieno --sheet e bordo (sul bordo superiore: non lascia
+   «macchie» sulla sfumatura), totale in colore secondario. Niente opacità. */
+[data-look='b'] .stale-results { border-radius: 22px; }
+[data-look='b'] .stale-results.is-stale { border-color: var(--ink2); }
+[data-look='b'] .stale-label {
+  background: var(--sheet);
+  color: var(--ink);
+  border: 1px solid var(--ink2);
+  border-radius: 999px;
+  padding: 0 10px;
+  font-weight: 600;
+  left: 16px;
+}
+[data-look='b'] .stale-results.is-stale .hero,
+[data-look='b'] .stale-results.is-stale .hero-unit { color: var(--ink2); }
+@media (forced-colors: active) {
+  [data-look='b'] .stale-results.is-stale { border-color: CanvasText; }
+  [data-look='b'] .stale-label { background: Canvas; color: CanvasText; border-color: CanvasText; }
+}
+
+/* ===== Comandi circolari sul cielo ===== */
+[data-look='b'] .scene-dials { background: none; border: 0; border-radius: 0; padding: 0; margin: 0; }
+[data-look='b'] .scene-dials legend, [data-look='b'] .params-title, [data-look='b'] .layout legend { font: 700 20px/1.2 var(--font); letter-spacing: 0; }
+[data-look='b'] .scene-dials legend { margin-bottom: 6px; }
+[data-look='b'] .scene-dials .dials { gap: 8px 14px; }
+[data-look='b'] .dial-box { background: none; border: 0; border-radius: 0; padding: 0; }
+[data-look='b'] .dial-face { fill: none; }
+[data-look='b'] .dial-axes { display: none; }
+[data-look='b'] .dial-arc { stroke: var(--track); stroke-width: 5; stroke-linecap: round; }
+[data-look='b'] .dial-ticks { stroke: var(--track); stroke-width: 2; }
+[data-look='b'] .dial-sweep { stroke: var(--bar); stroke-width: 5; }
+[data-look='b'] .dial-num, [data-look='b'] .dial-letter { fill: var(--ink2); font-family: var(--font); font-weight: 700; font-size: 15px; }
+[data-look='b'] .angle-dial-azimuth .dial-num { font-size: 13px; }
+[data-look='b'] .dial-needle { stroke: var(--edge); }
+[data-look='b'] .dial-hub { fill: var(--sheet); stroke: var(--edge); }
+[data-look='b'] .dial-handle { fill: var(--signal); stroke: var(--thumb-edge); stroke-width: 3.5; }
+[data-look='b'] .dial-handle-dot { display: none; }
+[data-look='b'] .dial-ring-halo { stroke: var(--sheet); }
+[data-look='b'] .scene .num { border-color: var(--ink2); }
+@media (forced-colors: active) {
+  [data-look='b'] .dial-arc, [data-look='b'] .dial-ticks { stroke: CanvasText; }
+  [data-look='b'] .dial-sweep { stroke: Highlight; }
+  [data-look='b'] .dial-handle { fill: Highlight; stroke: CanvasText; }
+  [data-look='b'] .dial-hub { fill: Canvas; stroke: CanvasText; }
+}
+
+/* ===== Campi e slider ===== */
+[data-look='b'] .fld > label { font-weight: 600; font-size: 15.5px; }
+[data-look='b'] .num { border: 2px solid var(--line); border-radius: 12px; background: var(--face); }
+[data-look='b'] .num input { font: 600 17px var(--font); border-radius: 10px; }
+[data-look='b'] .num:has(input[aria-invalid='true']) { border-color: var(--error); }
+[data-look='b'] .help { font-size: 14px; }
+[data-look='b'] .sl { margin-top: 22px; }
+[data-look='b'] .rng .ticks { display: none; }
+[data-look='b'] .rng input[type='range']::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--bar) var(--pct, 0%), var(--track) var(--pct, 0%)); }
+[data-look='b'] .rng input[type='range']::-moz-range-track { height: 6px; border-radius: 3px; background: var(--track); }
+[data-look='b'] .rng input[type='range']::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--bar); }
+[data-look='b'] .rng input[type='range']::-webkit-slider-thumb { width: 30px; height: 30px; margin-top: -12px; background: var(--signal); border: 3.5px solid var(--thumb-edge); box-shadow: none; }
+[data-look='b'] .rng input[type='range']::-moz-range-thumb { width: 23px; height: 23px; background: var(--signal); border: 3.5px solid var(--thumb-edge); box-shadow: none; }
+[data-look='b'] .rng input[type='range']:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--focus-ring); }
+[data-look='b'] .rng input[type='range']:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--focus-ring); }
+@media (forced-colors: active) {
+  [data-look='b'] .rng input[type='range']::-webkit-slider-thumb { background: Highlight; border-color: CanvasText; }
+  [data-look='b'] .rng input[type='range']::-moz-range-thumb { background: Highlight; border-color: CanvasText; }
+}
+
+/* ===== Corpo: due colonne senza schede ===== */
+[data-look='b'] .layout { margin-top: 36px; gap: 36px; }
+@media (min-width: 820px) { [data-look='b'] .layout { margin-top: 48px; gap: 56px; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+[data-look='b'] .layout fieldset { background: none; border: 0; border-radius: 0; padding: 0; margin: 0; }
+[data-look='b'] .params-title { margin-bottom: 16px; font-size: 22px; }
+[data-look='b'] .layout legend { font-size: 18px; margin-bottom: 12px; }
+[data-look='b'] .sliders { margin-top: 20px; }
+[data-look='b'] .results-more { min-width: 0; }
+[data-look='b'] .site-footer { grid-row: auto; border-top-color: var(--hair); padding-bottom: 8px; }
+
+/* Grafico: barre blu-pannello, ≥ 3:1 sul fondo in chiaro e scuro. */
+[data-look='b'] .chart-grid { stroke: var(--hair); }
+[data-look='b'] .chart-tick, [data-look='b'] .chart-value { font-family: var(--font); }
+[data-look='b'] .chart-value { font-weight: 700; }
+[data-look='b'] .chart-bar-fill { fill: var(--bar); }
+[data-look='b'] .chart-tooltip { border-radius: 8px; font-weight: 700; }
+[data-look='b'] summary { font-weight: 600; }
+[data-look='b'] summary::before { border-width: 0 2.5px 2.5px 0; }
+[data-look='b'] .chart-table th { font-weight: 600; }
+
+/* ===== Pulsanti e mappa ===== */
+[data-look='b'] .map-toggle, [data-look='b'] .reload-button {
+  border: 2px solid var(--ink); border-radius: 999px; background: transparent; color: var(--ink); font-weight: 700;
+}
+[data-look='b'] .reload-button[aria-disabled='true'] { color: var(--ink2); border-color: var(--ink2); }
+[data-look='b'] .map { border-radius: 22px; border: 1px solid var(--hair); overflow: hidden; }
+[data-look='b'] .map-picker .map { border-radius: 22px; }
+[data-look='b'] .map-picker .map .leaflet-bar { border: 2px solid var(--line); border-radius: 12px; }
+[data-look='b'] .map-picker .map .leaflet-control-attribution { border-top-left-radius: 10px; }
+[data-look='b'] .map-error p, [data-look='b'] .app-error p { color: var(--ink); }
+
+/* ===== Barra fissa del telefono ===== */
+@media (max-width: 819.98px) {
+  [data-look='b'] .sticky-total { border-top: 0; border-radius: 22px 22px 0 0; }
+  [data-look='b'] .sticky-value { font: 800 28px/1 var(--font); letter-spacing: -0.01em; }
+  [data-look='b'] .sticky-label { font-weight: 600; }
+  [data-look='b'] .sticky-unit { font-weight: 700; }
+}
+
+/* Rifiniture dopo il confronto con lo screenshot della pagina vera. */
+/* Niente scheda attorno al grafico (A la ha): in B le sezioni sono separate dallo spazio. */
+[data-look='b'] .chartsheet, [data-look='b'] .sheet { background: none; border: 0; border-radius: 0; padding: 0; }
+[data-look='b'] .sheet > h2 { font: 700 22px/1.2 var(--font); margin-bottom: 10px; }
+/* Comandi: solo gli estremi (0° e 90°) e le lettere N E S O, come nel prototipo; i numeri intermedi
+   finivano sotto il cursore. Il valore esatto è nel campo accanto. */
+[data-look='b'] .angle-dial-tilt .dial-num:nth-of-type(2), [data-look='b'] .angle-dial-tilt .dial-num:nth-of-type(3),
+[data-look='b'] .angle-dial-azimuth .dial-num { display: none; }
+/* Etichette lunghe: due righe riservate, così i due campi restano allineati. */
+@media (min-width: 370px) { [data-look='b'] .angle-dial .fld > label { min-height: 3em; } }
+/* Pulsanti di zoom più grandi (bersaglio di tocco). */
+[data-look='b'] .map-picker .map .leaflet-bar a { width: 40px; height: 40px; line-height: 40px; font-size: 22px; }

@@ -54,6 +54,10 @@ test('Tab raggiunge la mappa e i suoi pulsanti prima dei campi; le frecce non ca
   await avvio(page, pvgis)
   await expect(mappa(page)).toBeVisible()
   await page.locator('body').click({ position: { x: 1, y: 1 } })
+  // Prima della mappa c'è l'interruttore dell'aspetto nell'intestazione (#56 parte 2): un solo
+  // arresto di Tab, sul radio selezionato (gruppo di radio nativo).
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('radio', { name: 'Strumento' })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(mappa(page)).toBeFocused()
   await page.keyboard.press('ArrowRight')

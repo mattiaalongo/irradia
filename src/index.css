@@ -394,3 +394,76 @@ summary:focus-visible { outline-offset: -3px; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Interruttore dell'aspetto della pagina (#56 parte 2), nell'intestazione, in entrambi gli aspetti.
+   Controllo segmentato: due pulsanti affiancati, quello scelto è PIENO (colore --ink) e porta una
+   spunta, quindi lo stato non dipende dal solo colore (WCAG 1.4.1). I radio restano NATIVI (tastiera a
+   frecce, lettori di schermo) ma sono trasparenti e coprono tutta l'etichetta: il tocco è l'intero
+   pulsante (≥ 44 px, 48 px su telefono). L'anello di focus è sull'etichetta (:has + :focus-visible).
+   Sul cielo dell'aspetto B il fondo del controllo è --sheet e il bordo --ink (≥ 9:1 sul cielo).
+   --switch-radius: 6 px in A, pillola in B (lookB.css). */
+header { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; align-items: start; }
+header > h1, header > .subtitle { grid-column: 1; }
+.look-switch { grid-column: 2; grid-row: 1 / span 2; background: none; border: 0; border-radius: 0; padding: 0; margin: 0; min-width: 0; }
+.look-switch legend { float: none; width: auto; margin: 0 0 4px; padding: 0; font: 500 14px/1.3 var(--font); color: var(--ink2); }
+.look-options {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--sheet);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--switch-radius, 6px);
+}
+.look-option {
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: calc(var(--switch-radius, 6px) - 2px);
+  font: 600 15px/1.2 var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.look-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.look-option:has(input:checked) { background: var(--ink); color: var(--paper); }
+.look-option:has(input:checked)::before {
+  content: ''; width: 5px; height: 9px; flex: none;
+  border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px);
+}
+.look-option:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.look-option input:focus-visible { outline: none; }
+@media (forced-colors: active) {
+  .look-options { border-color: CanvasText; background: Canvas; }
+  .look-option { color: CanvasText; }
+  .look-option:has(input:checked) { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+}
+/* Telefono: sotto il sottotitolo, a tutta larghezza, metà alte 48 px. */
+@media (max-width: 819.98px) {
+  header { grid-template-columns: minmax(0, 1fr); }
+  .look-switch { grid-column: 1; grid-row: auto; margin-top: 14px; }
+  .look-option { min-height: 48px; padding: 0 8px; }
+}
+
+/* Aspetto B «Giornata di sole» (#56 parte 2): SOLO la struttura (griglie, colonne, telefono a colonna
+   unica, nessuno scorrimento orizzontale fino a 320 px). Palette, carattere, cielo: designer.
+   Tutte le regole di B hanno il prefisso [data-look='b'] (attributo su <html>, vedi ui/look.ts). */
+[data-look='b'] .scene {
+  display: grid;
+  gap: 24px;
+  margin-top: 24px;
+  grid-template-columns: minmax(0, 1fr);
+}
+[data-look='b'] .scene-main { min-width: 0; }
+[data-look='b'] .scene .results { margin-top: 16px; }
+[data-look='b'] .params-title { margin-bottom: 16px; }
+[data-look='b'] .sliders { margin-top: 20px; }
+[data-look='b'] .scene-dials .dials { margin-top: 0; }
+@media (min-width: 820px) {
+  [data-look='b'] .scene { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  [data-look='b'] .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
