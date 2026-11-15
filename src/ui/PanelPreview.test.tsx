@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import PanelPreview from './PanelPreview'
+import { PREVIEW_VARIANTS as VARIANTS } from './panelPreviewVariants'
 import { projectPanel } from './panelProjection'
 
 const render = (tilt: number, az: number) => renderToStaticMarkup(<PanelPreview tiltDeg={tilt} azimuthDeg={az} />)
@@ -51,5 +52,45 @@ describe('PanelPreview', () => {
   it('il riquadro di profilo mostra l\'inclinazione immediata', () => {
     expect(render(0, 180)).toContain('>0°<')
     expect(render(90, 180)).toContain('>90°<')
+  })
+})
+
+describe('PanelPreview, variante "b" (aspetto «Giornata di sole»)', () => {
+  const renderB = (tilt: number, az: number) =>
+    renderToStaticMarkup(<PanelPreview tiltDeg={tilt} azimuthDeg={az} variant="b" />)
+
+  it('parametri del prototipo: elevazione 40°, yaw 20°, osservatore a 10 m', () => {
+    expect(VARIANTS.b.scene).toMatchObject({ elevationDeg: 40, yawDeg: 20, distanceM: 10 })
+    expect(VARIANTS.a.scene.distanceM).toBeUndefined()
+  })
+
+  it('solo disegno: aria-hidden, lettere N E S O, niente riquadro di profilo né sole', () => {
+    const html = renderB(35, 180)
+    expect(html).toMatch(/^<div class="panel-preview panel-preview-b"><svg viewBox="0 0 640 392" aria-hidden="true"/)
+    expect(html).not.toMatch(/<animate|<style|filter=|<title|pp-side-/)
+    expect(html).not.toContain('>35°<')
+    for (const l of ['>N<', '>E<', '>S<', '>O<']) expect(html).toContain(l)
+  })
+
+  it('data-face coerente con la proiezione in prospettiva', () => {
+    for (const [tilt, az] of [[35, 180], [35, 0], [60, 270], [10, 90], [90, 0], [0, 180]] as const) {
+      const front = projectPanel(tilt, az, VARIANTS.b.scene).front
+      expect(renderB(tilt, az)).toContain(`data-face="${front ? 'front' : 'back'}"`)
+    }
+  })
+
+  it('lettere sempre dentro il riquadro, per ogni posa', () => {
+    for (let tilt = 0; tilt <= 90; tilt += 15) {
+      for (let az = 0; az < 360; az += 15) {
+        const html = renderB(tilt, az)
+        for (const m of html.matchAll(/class="pp-letter" x="([-\d.]+)" y="([-\d.]+)"/g)) {
+          expect(Number(m[1])).toBeGreaterThanOrEqual(12)
+          expect(Number(m[1])).toBeLessThanOrEqual(628)
+          expect(Number(m[2])).toBeGreaterThanOrEqual(14)
+          expect(Number(m[2])).toBeLessThanOrEqual(378)
+        }
+        expect(html).not.toContain('NaN')
+      }
+    }
   })
 })

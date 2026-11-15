@@ -44,6 +44,12 @@ export interface PanelProjectionOptions {
   readonly cols?: number
   /** Righe di celle (lungo la pendenza). Predefinito 10. */
   readonly rows?: number
+  /**
+   * Distanza dell'osservatore dal centro del disco di terreno (m), per la vista in **prospettiva**
+   * (aspetto B, PR2 del #56). Assente = proiezione ortografica, identica bit per bit a prima.
+   * Deve essere un numero finito > 0, altrimenti `RangeError`.
+   */
+  readonly distanceM?: number
 }
 
 export interface PanelProjection {
@@ -106,8 +112,15 @@ const RAD = Math.PI / 180
  * La direzione verso l'osservatore è d = (0, −cos ε, sin ε) (ortogonale ai due assi dello
  * schermo); si vede la faccia con le celle se n'·d > 0.
  *
- * Per aggiungere la prospettiva (PR2) basta cambiare `toScreen`: la profondità di un punto è
- * y' cos ε − z sin ε (= −p'·d).
+ * Prospettiva (facoltativa, `distanceM` = D): modello a foro stenopeico (pinhole), Hartley &
+ * Zisserman, "Multiple View Geometry in Computer Vision", 2ª ed., §6.1, eq. 6.1: un punto a distanza
+ * Z dall'osservatore lungo l'asse della vista va sullo schermo moltiplicato per f/Z. L'osservatore
+ * sta in E = D·d; la profondità di un punto, misurata dal piano dello schermo che passa per il centro
+ * del disco, è δ = y' cos ε − z sin ε (= −p'·d), quindi Z = D + δ. Con f = D i punti a δ = 0 restano
+ * dove li mette la vista ortografica (stessa scala): X = ox + s·k·x', Y = oy − s·k·(y' sin ε + z cos ε),
+ * con k = D / (D + δ). Un punto con D + δ ≤ 0 sta sull'osservatore o dietro: `RangeError`.
+ * In prospettiva si vede la faccia con le celle se n'·(E − c') > 0 (c' = centro del pannello): il
+ * pannello si guarda da un punto preciso, non da una direzione.
  */
 export function projectPanel(tiltDeg: number, azimuthDeg: number, options: PanelProjectionOptions = {}): PanelProjection {
   const {
@@ -122,7 +135,12 @@ export function projectPanel(tiltDeg: number, azimuthDeg: number, options: Panel
     groundRadiusM = 1.5,
     cols = 6,
     rows = 10,
+    distanceM,
   } = options
+
+  if (distanceM !== undefined && !(Number.isFinite(distanceM) && distanceM > 0)) {
+    throw new RangeError(`Distanza dell'osservatore non valida: ${distanceM} (serve un numero finito > 0)`)
+  }
 
   // Azimut ridotto a [0, 360): α e α + 360 danno lo stesso disegno anche con valori molto grandi.
   const beta = tiltDeg * RAD
@@ -146,10 +164,14 @@ export function projectPanel(tiltDeg: number, azimuthDeg: number, options: Panel
 
   /** Passo 1 della camera: rotazione attorno alla verticale. */
   const rotate = (p: Vec3): Vec3 => [p[0] * cpsi + p[1] * spsi, -p[0] * spsi + p[1] * cpsi, p[2]]
-  /** Passo 2: proiezione ortografica sullo schermo. */
+  /** Passo 2: proiezione sullo schermo, ortografica o (con `distanceM`) prospettica. */
   const toScreen = (p: Vec3): Point2 => {
     const q = rotate(p)
-    return { x: ox + scale * q[0], y: oy - scale * (q[1] * seps + q[2] * ceps) }
+    if (distanceM === undefined) return { x: ox + scale * q[0], y: oy - scale * (q[1] * seps + q[2] * ceps) }
+    const z = distanceM + q[1] * ceps - q[2] * seps
+    if (!(z > 0)) throw new RangeError('Punto sull\'osservatore o dietro di lui: aumentare la distanza')
+    const k = (scale * distanceM) / z
+    return { x: ox + k * q[0], y: oy - k * (q[1] * seps + q[2] * ceps) }
   }
 
   /** Punto del pannello: i, j ∈ [−1, 1] (−1 = sinistra / basso, +1 = destra / alto). */
@@ -179,9 +201,16 @@ export function projectPanel(tiltDeg: number, azimuthDeg: number, options: Panel
   }
 
   const nr = rotate(n)
+  let front: boolean
+  if (distanceM === undefined) front = -nr[1] * ceps + nr[2] * seps > 0
+  else {
+    // Vettore dal centro del pannello all'osservatore E = D·d, con d = (0, −cos ε, sin ε).
+    const cr = rotate(center)
+    front = nr[0] * -cr[0] + nr[1] * (-distanceM * ceps - cr[1]) + nr[2] * (distanceM * seps - cr[2]) > 0
+  }
   return {
     panel: corners.map(toScreen),
-    front: -nr[1] * ceps + nr[2] * seps > 0,
+    front,
     grid,
     footprint: corners.map((p) => toScreen(ground(p))),
     posts: corners.map((p): Segment2 => [toScreen(p), toScreen(ground(p))]),

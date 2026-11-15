@@ -184,6 +184,79 @@ describe('projectPanel: struttura', () => {
   })
 })
 
+describe('projectPanel: prospettiva (distanceM)', () => {
+  // Riferimento: modello a foro stenopeico (Hartley & Zisserman, §6.1, eq. 6.1) applicato a mano.
+  // Vista: elevazione 30° (sin = 0,5; cos = √3/2 = 0,8660254038), yaw 0, scala 100, origine (0, 0),
+  // osservatore a D = 10 m. Per un punto ruotato (x', y', z):
+  //   Z = D + y'·cos ε − z·sin ε;  k = 100·D / Z;  X = k·x';  Y = −k·(y'·sin ε + z·cos ε).
+  // Tolleranza 1e-9: i valori attesi sono calcolati in doppia precisione da espressioni chiuse
+  // (gli errori di arrotondamento delle due strade sono ~1e-13).
+  const opts = { scale: 100, elevationDeg: 30, yawDeg: 0, distanceM: 10 } as const
+  const close = (p: Point2, x: number, y: number) => {
+    expect(Math.abs(p.x - x)).toBeLessThan(1e-9)
+    expect(Math.abs(p.y - y)).toBeLessThan(1e-9)
+  }
+
+  it('punti del terreno: davanti più grandi, dietro più piccoli, di lato invariati', () => {
+    const g = projectPanel(35, 180, opts).groundPoint
+    // Nord a 4 m, (0, 4, 0): Z = 10 + 4·0,8660254 = 13,4641016; k = 1000/Z = 74,2715726;
+    //   Y = −k·(4·0,5) = −148,5431451.
+    close(g(0, 4), 0, -1000 / (10 + 4 * Math.sqrt(3) / 2) * 2)
+    expect(g(0, 4).y).toBeCloseTo(-148.5431451, 6)
+    // Sud a 4 m, (0, −4, 0): Z = 10 − 3,4641016 = 6,5358984; k = 153,0011547; Y = +306,0023094.
+    close(g(180, 4), 0, (1000 / (10 - 4 * Math.sqrt(3) / 2)) * 2)
+    expect(g(180, 4).y).toBeCloseTo(306.0023094, 6)
+    // Est a 3 m, (3, 0, 0): Z = D, k = 100 → (300, 0), come nella vista ortografica.
+    close(g(90, 3), 300, 0)
+  })
+
+  it('angoli di un pannello verticale verso Sud (β = 90, α = 180), 2 × 2 m, poggiato a terra', () => {
+    // u = (−1, 0, 0), v = (0, 0, 1), centro (0, 0, 1). Basso-sx = c − u − v = (1, 0, 0): Z = 10, k = 100 → (100, 0).
+    // Alto-sx = c − u + v = (1, 0, 2): Z = 10 − 2·0,5 = 9; k = 111,1111111; X = 111,1111111;
+    //   Y = −k·2·0,8660254 = −192,4500897.
+    const p = projectPanel(90, 180, { ...opts, panelWidthM: 2, panelHeightM: 2, clearanceM: 0 })
+    close(p.panel[0], 100, 0)
+    close(p.panel[3], 1000 / 9, (-1000 / 9) * Math.sqrt(3))
+    expect(p.panel[3].y).toBeCloseTo(-192.4500897, 6)
+    // Normale (0, −1, 0), osservatore E = (0, −8,66, 5), centro (0, 0, 1): n·(E − c) = 8,66 > 0 → celle.
+    expect(p.front).toBe(true)
+    expect(projectPanel(90, 0, { ...opts, panelWidthM: 2, panelHeightM: 2, clearanceM: 0 }).front).toBe(false)
+  })
+
+  it('la faccia vista dipende dalla posizione dell\'osservatore, non solo dalla direzione', () => {
+    // Pannello piatto (normale in alto) a 6 m da terra; l'osservatore a 10 m con elevazione 30° sta a
+    // 5 m d'altezza, cioè SOTTO il pannello: vede il retro. La vista ortografica (direzione) vede le celle.
+    const ortho = { scale: 100, elevationDeg: 30, yawDeg: 0, clearanceM: 6 }
+    expect(projectPanel(0, 180, { ...ortho, distanceM: 10 }).front).toBe(false)
+    expect(projectPanel(0, 180, ortho).front).toBe(true)
+  })
+
+  it('con una distanza enorme tende alla vista ortografica', () => {
+    const a = projectPanel(35, 200, { distanceM: 1e9 })
+    const b = projectPanel(35, 200)
+    a.panel.forEach((p, k) => {
+      expect(p.x).toBeCloseTo(b.panel[k].x, 4)
+      expect(p.y).toBeCloseTo(b.panel[k].y, 4)
+    })
+    expect(a.front).toBe(b.front)
+  })
+
+  it('distanza non finita o ≤ 0: RangeError', () => {
+    for (const d of [0, -1, -0, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(() => projectPanel(35, 180, { distanceM: d })).toThrow(RangeError)
+    }
+  })
+
+  it('punto sull\'osservatore o dietro di lui: RangeError', () => {
+    // Disco di 3 m con l'osservatore a 1 m: il punto a Sud del bordo ha Z = 1 − 3·cos 30° < 0.
+    expect(() => projectPanel(35, 180, { ...opts, distanceM: 1, groundRadiusM: 3 })).toThrow(RangeError)
+    // Esattamente sull'osservatore (Z = 0): elevazione 0, punto a Sud a D metri.
+    const g = projectPanel(35, 180, { scale: 100, elevationDeg: 0, yawDeg: 0, distanceM: 10 }).groundPoint
+    expect(() => g(180, 10)).toThrow(RangeError)
+    expect(() => g(180, 9.999)).not.toThrow()
+  })
+})
+
 describe('pointsAttribute', () => {
   it('coppie "x,y" separate da spazi, 1 decimale, niente "-0.0"', () => {
     expect(pointsAttribute([{ x: 1, y: 2 }, { x: -3.14159, y: 10.06 }, { x: -0.04, y: -0 }])).toBe('1.0,2.0 -3.1,10.1 0.0,0.0')
