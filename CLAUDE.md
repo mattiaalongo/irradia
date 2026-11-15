@@ -208,6 +208,14 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   italiano i file del repository (questo file, mansionari, skill, commenti nel codice, `docs/`)
   e i testi dell'app. Se il PO apre un issue in italiano, la sessione aggiunge un commento con
   la traduzione inglese.
+- **Nessun dato personale del PO nel repository né su GitHub** (decisione del PO del 15/11/2026,
+  in vista della pubblicazione): mai la sua email personale, mai percorsi del suo PC che contengono il
+  nome utente (scrivere `<cartella principale del progetto>`), mai indirizzi o coordinate di casa.
+  Vale per file, messaggi di commit, nomi dei rami, PR, issue e commenti. I commit del PO usano solo
+  l'indirizzo *noreply* di GitHub (`git config --global user.email` sul suo PC); le sessioni cloud
+  firmano come Claude. Possono restare il login GitHub `mattiaalongo` (è nell'indirizzo del
+  repository) e il nome del PO come autore. Prima di aprire una PR, controllare il diff e gli autori
+  dei commit (`git log --format='%an <%ae> | %cn <%ce>' origin/main..HEAD`).
 - Per ogni azione proposta o eseguita **spiega il motivo** della scelta e le alternative
   scartate. Non dare nulla per scontato.
 - Le formule si possono mostrare; i concetti di sviluppo software vanno spiegati in modo
@@ -241,7 +249,7 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
 - **Dependabot proporrà ESLint e `minimatch`** (aggiornamenti settimanali): prima di unire,
   verifica che `npm audit` migliori davvero e che ESLint non torni indietro di versione.
 - **I mansionari degli agenti si leggono dalla cartella principale del progetto**
-  (`<cartella principale del progetto>`), non dalle copie di lavoro (`.claude/worktrees/…`) in cui
+  (`<cartella principale del progetto>`, sul PC del PO), non dalle copie di lavoro (`.claude/worktrees/…`) in cui
   girano le sessioni (verificato 8/11/2026). Una modifica a `.claude/agents/` vale solo quando
   la cartella principale è su un ramo che la contiene: tenerla su `main` aggiornato (`git pull`).
 - **Nelle prove (anche `/prova-locale`) solo coordinate di città**: i commenti delle prove finiscono
