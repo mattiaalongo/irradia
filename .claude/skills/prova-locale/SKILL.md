@@ -57,7 +57,7 @@ eseguire qualsiasi cosa:
 ## 2. Portare il codice della PR in questa copia di lavoro
 
 Le sessioni locali dell'app girano in una **copia di lavoro separata** (una cartella in
-`.claude/worktrees/…`), non nella cartella principale `<cartella principale del progetto>`.
+`.claude/worktrees/…`), non nella cartella principale (`<cartella principale del progetto>`).
 La cartella principale deve restare su `main`: da lì si leggono i mansionari degli agenti.
 
 1. Verifica di essere in una copia separata: `git rev-parse --git-dir` e
