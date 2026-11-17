@@ -247,12 +247,17 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
 
 ## Avvisi noti
 
-- `npm audit` segnala **9 vulnerabilità moderate** (verificato 17/11/2026), tutte la stessa:
-  `minimatch` 10.2.6, usata da ESLint e typescript-eslint (strumenti di sviluppo:
-  `npm audit --omit=dev` dà 0, niente finisce nell'app pubblicata). La correzione proposta
-  da npm porterebbe typescript-eslint da 8.72 a 8.36 (indietro): rifiutarla. ESLint 10.15
-  usa `minimatch` 11 e dovrebbe togliere una parte delle segnalazioni; le altre spariranno
-  quando typescript-eslint aggiornerà la sua. Ricontrolla quando aggiorni le dipendenze.
+- `npm audit` segnala **15 vulnerabilità, 8 moderate e 7 alte** (verificato 17/11/2026; il numero
+  cambia con il database degli avvisi), **tutte in strumenti di sviluppo e di build**:
+  `npm audit --omit=dev` dà 0, niente finisce nell'app pubblicata. Due cause:
+  (1) moderate: `minimatch` 10.2.6 (corretta da 11.0.1), usata da ESLint e typescript-eslint;
+  ESLint 10.15 usa `minimatch` 11 e dovrebbe togliere una parte delle segnalazioni, le altre
+  spariranno quando typescript-eslint aggiornerà la sua; (2) alte: `picomatch` ≤ 4.0.7 (ReDoS
+  con schemi costruiti apposta), usata da Vite, Vitest e tinyglobby: il 17/11/2026 **non esiste
+  ancora una versione corretta** (4.0.7 è l'ultima). Il rischio è basso: questi strumenti
+  leggono solo schemi scritti da noi nella configurazione. Le "correzioni" proposte da npm
+  riporterebbero indietro di versione typescript-eslint (8.36), Vite (6), Vitest (3) e
+  plugin-react (5): rifiutarle. Ricontrolla quando aggiorni le dipendenze.
 - **L'ambiente cloud `irradia` parte da una copia in cache creata prima del 15/11/2026**
   (verificato il 17/11/2026): il ramo locale `main` puntava ancora alla **vecchia storia con
   l'email personale** (34 commit su 89). **Ogni sessione cloud, prima di creare un ramo:**

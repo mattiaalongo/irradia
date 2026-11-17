@@ -53,7 +53,7 @@ saved in the repository, so the tests run offline and always give the same resul
 | Hour by hour vs the PVGIS hourly series for 2020 (annual sums) | Rome, Milan | direct ±0.3 %, diffuse ±0.2 %, reflected ±0.3 %, energy ±1 % (Milan, South 35°: +0.42 %) |
 | Each month of the typical year vs the same real month (PVGIS MRcalc) | Rome, Milan | light on the panel ±1 %, horizontal ±0.5 %, year ±0.5 % |
 | Conversion of light into energy vs PVGIS PVcalc | Rome, Milan | ±1.5 % (Milan −0.5 %: spectral effect, not modelled) |
-| Terrain shading | Aosta (Alps) | shaded hours match the PVGIS horizon profile within 0.25°; effect on each month ±0.5 % vs PVGIS (worst month measured: +0.26 %) |
+| Terrain shading | Aosta (Alps) | shaded hours match the PVGIS horizon profile within 0.25°; ratio of light on the panel with / without terrain shading vs the same real month in PVGIS MRcalc: months ±0.5 % (worst measured +0.26 %), year ±0.1 % |
 
 **Why the app's total can differ from the PVGIS website by a few percent.** The app
 uses a *typical year* made of 12 real months chosen from 2005 to 2023, while the
@@ -87,7 +87,7 @@ Product Owner with a team of AI agents**.
   6. continuous integration;
   7. my review and merge.
 
-  The project status is kept in a pinned issue.
+  The project status is kept in a dedicated issue (#22).
 - **Every decision and its reason** is recorded in [`CLAUDE.md`](CLAUDE.md) (in
   Italian).
 - **Quality does not rely on trusting the AI.** Results are checked against an

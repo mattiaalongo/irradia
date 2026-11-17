@@ -58,7 +58,8 @@ PVGIS usage conditions (read on the official page on 17 November 2026):
 "The information provided by PVGIS is free and there are no restrictions on its
 use. We simply ask users to acknowledge the source as Photovoltaic Geographic
 Information System (PVGIS) of the European Commission Joint Research Centre and
-to cite the main link". The same page states that PVGIS output does not
+to cite the main link Photovoltaic Geographical Information System (PVGIS) -
+Joint Research Centre." The same page states that PVGIS output does not
 necessarily reflect the position of the European Commission, and that the
 Commission is not responsible for the use made of it.
 
