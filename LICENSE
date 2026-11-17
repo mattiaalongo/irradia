@@ -1,0 +1,30 @@
+Copyright (c) 2026 Mattia Longo. All rights reserved.
+
+This repository is published so that its source code, documentation and
+history can be read. No licence is granted to copy, modify, distribute,
+sublicense or use this work, in whole or in part, outside the rights that
+GitHub's Terms of Service give to users of the GitHub platform (viewing and
+forking this repository on GitHub).
+
+If you would like to reuse any part of this project, please ask the owner
+through GitHub (https://github.com/mattiaalongo).
+
+Third-party material
+--------------------
+The following parts of this repository are NOT covered by the notice above.
+They remain under the licences chosen by their authors, as listed in
+THIRD_PARTY_NOTICES.md:
+
+- the font files in src/assets/fonts/ (SIL Open Font License 1.1; licence
+  texts in licenses/);
+- the skill in .claude/skills/frontend-design/ (Apache License 2.0; licence
+  text in that folder);
+- the PVGIS data saved in src/engine/__fixtures__/ (PVGIS, European
+  Commission Joint Research Centre; free use with acknowledgement of the
+  source).
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT
+OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF IT.

@@ -1,86 +1,169 @@
 # Irradia
 
-Simulatore **deterministico** della produzione di un impianto fotovoltaico residenziale.
+A browser app that estimates how much energy a rooftop solar (PV) system will
+produce, using **deterministic, documented physics** and measured historical
+weather data. No AI and no opaque statistical model is used in the calculation.
 
-Imposta la posizione della casa, l'inclinazione e l'orientamento dei pannelli,
-il loro numero e la loro potenza, e vedi quanta energia produrrà l'impianto,
-sulla base di modelli fisici documentati e di dati storici di irraggiamento.
+![Irradia, "Sunny day" look: panel preview, angle dials and the annual estimate](docs/screenshots/pr-60/b-desktop-light.png)
 
-## Stato
+> The app's interface is in Italian: the first target users are in Italy and Europe.
 
-| Fase | Stato |
-|---|---|
-| 1. Fondamenta del progetto + posizione del sole | ✅ |
-| 2. Dati di irraggiamento (PVGIS) | ✅ |
-| 3. Modello di produzione e validazione | ✅ |
-| 4. Interfaccia con slider e grafici | ✅ |
-| 5. Scelta della posizione su mappa | ⏳ |
-| 6. Pubblicazione online | ⏳ |
+## What it does
 
-## Come si calcola la produzione
+Pick a location on the map (or type the coordinates). Set the panels' tilt and
+orientation with angle-shaped dials. Choose the number of panels, their power and
+the system losses. The app shows the estimated **annual energy (kWh)** and a
+**month-by-month chart**, and updates instantly as you move a control.
 
-Per ognuna delle 8760 ore dell'anno tipo di PVGIS:
+Weather data come from **PVGIS** (European Commission, Joint Research Centre). The
+app uses a typical meteorological year of 8,760 hourly values, downloaded once per
+location.
 
-1. posizione del sole (algoritmo NOAA);
-2. luce sul piano dei pannelli: diretta (geometria), diffusa dal cielo (modello di Muneer,
-   come PVGIS) e riflessa dal suolo (albedo 0,2);
-3. perdite per riflessione sul vetro dei moduli (Martin & Ruiz);
-4. temperatura dei moduli (Faiman) e potenza in corrente continua (Huld);
-5. perdite di sistema (inverter, cavi…: 14 % predefinito);
+## The core principle: deterministic and verifiable
 
-poi si sommano le ore in kWh mensili e annuali.
+Every number the app shows comes from published physical models, applied hour by
+hour, and the code cites the source of each formula. The same inputs always give
+the same result, and every step can be checked against an independent reference.
 
-**Validazione** (Roma, 1 kWp): rifacendo ora per ora l'anno 2020 di PVGIS, l'energia annua
-coincide entro l'1 % (Sud 35°: +0,6 %; Est 20°: +0,3 %). Con l'anno tipo otteniamo
-1511 kWh/anno contro i 1505 della media 2005-2023 di PVGIS (+0,4 %).
+For each of the 8,760 hours:
 
-Differenze note rispetto a PVGIS: non consideriamo l'effetto dello spettro della luce
-(circa ±1 %) né le ombre di montagne ed edifici all'orizzonte.
+1. Sun position: NOAA / Meeus algorithm.
+2. Light on the tilted panel:
+   - direct light, from geometry;
+   - diffuse light from the sky, with the Muneer model as in PVGIS 5.3;
+   - light reflected by the ground, with albedo 0.2.
 
-## Avvio in locale
+   Shading by the terrain (mountains, hills) is already applied by PVGIS to the
+   input data.
+3. Reflection losses on the module glass: Martin & Ruiz.
+4. Module temperature (Faiman) and DC power (Huld et al., 2011).
+5. System losses (inverter, cables and so on; 14 % by default).
 
-Richiede [Node.js](https://nodejs.org/) 22 o superiore.
+The hours are then summed into monthly and annual kWh. The model deliberately
+mirrors PVGIS 5.3, so that comparing against PVGIS measures *our* errors, not
+differences between models.
+
+## Validation against PVGIS
+
+The engine is tested against values published by PVGIS. The PVGIS responses are
+saved in the repository, so the tests run offline and always give the same result.
+
+| Check | Locations | Tolerance |
+|---|---|---|
+| Hour by hour vs the PVGIS hourly series for 2020 (annual sums) | Rome, Milan | direct ±0.3 %, diffuse ±0.2 %, reflected ±0.3 %, energy ±1 % (Milan, South 35°: +0.42 %) |
+| Each month of the typical year vs the same real month (PVGIS MRcalc) | Rome, Milan | light on the panel ±1 %, horizontal ±0.5 %, year ±0.5 % |
+| Conversion of light into energy vs PVGIS PVcalc | Rome, Milan | ±1.5 % (Milan −0.5 %: spectral effect, not modelled) |
+| Terrain shading | Aosta (Alps) | shaded hours match the PVGIS horizon profile within 0.25°; effect on each month ±0.5 % vs PVGIS (worst month measured: +0.26 %) |
+
+**Why the app's total can differ from the PVGIS website by a few percent.** The app
+uses a *typical year* made of 12 real months chosen from 2005 to 2023, while the
+website shows the average of all years. In Milan, for example, the typical year is
+about 4 % sunnier than the average. This is not an error of the engine, and the app
+says so under the total.
+
+**Testing:** 525 unit and property-based tests (Vitest, and fast-check with a fixed
+seed) and about 460 browser tests (Playwright) on the production build, all run in
+continuous integration (CI) on every change.
+
+## How this project is built
+
+This project is also an experiment in **managing software development as a
+Product Owner with a team of AI agents**.
+
+- **The code, tests and documentation were written by AI agents** (Claude Code,
+  by Anthropic). I did not write the code myself.
+- **My role is the Product Owner's.** I set the goals and choose between the options
+  that the agents present with their trade-offs. I also approve the plans, check
+  the results and decide what gets merged.
+- **The team** is a set of agents with written job descriptions (in Italian) in
+  [`.claude/agents/`](.claude/agents): Technical Leader, Software Developer,
+  Designer, Software Tester, CI/CD and Project Manager.
+- **The workflow:** each piece of work goes through these steps:
+  1. an issue;
+  2. a technical plan with acceptance criteria;
+  3. implementation on a separate branch;
+  4. independent testing;
+  5. a draft pull request;
+  6. continuous integration;
+  7. my review and merge.
+
+  The project status is kept in a pinned issue.
+- **Every decision and its reason** is recorded in [`CLAUDE.md`](CLAUDE.md) (in
+  Italian).
+- **Quality does not rely on trusting the AI.** Results are checked against an
+  independent reference (PVGIS) with explicit tolerances, and CI runs every check
+  on every change.
+
+Issues and pull requests #1 to #64 are copies from an earlier private repository.
+It was recreated to remove personal data from the history, so the original diffs
+and CI runs of those pull requests are not available here.
+
+## Repository tour
+
+```
+src/engine/   calculation engine: pure TypeScript, no React; each module has its tests
+src/ui/       React components and their pure logic
+e2e/          browser tests (Playwright) with simulated PVGIS data and map tiles
+scripts/      CI tools (size check of the initial JavaScript)
+.claude/      job descriptions and skills of the AI agents
+CLAUDE.md     decision log and project rules (Italian)
+```
+
+## Run it locally
+
+Requires Node.js 24 (the version used in CI).
 
 ```bash
 npm install
-npm run dev
+npm run dev       # http://localhost:5173
+npm test          # unit and property tests (offline)
+npm run test:e2e  # browser tests
 ```
 
-Poi apri http://localhost:5173: imposta posizione e pannelli con i campi o gli slider e
-vedi subito la produzione annua e il grafico dei 12 mesi. I dati di PVGIS si scaricano
-da soli quando cambi la posizione (qualche secondo) e restano in memoria finché la
-pagina è aperta.
+PVGIS does not send CORS headers, so a browser cannot call it directly. In
+development, the Vite dev server forwards the requests. The public version will
+need a small server-side proxy.
 
-Nota: il download dei dati funziona solo con `npm run dev`, che fa da intermediario verso
-PVGIS (PVGIS non permette al browser di leggerlo direttamente). Per la versione pubblicata
-servirà un intermediario lato server (fase 6).
+## Status
 
-## Test
+Done:
+- sun position;
+- PVGIS data, including terrain shading;
+- production model, validated against PVGIS;
+- interface with chart, map and two visual styles.
 
-```bash
-npm test
-```
+Next: online deployment. Economic estimates (costs, savings) are intentionally out
+of scope for now.
 
-I test del motore di calcolo confrontano i risultati con valori di riferimento
-pubblicati (NREL, NOAA, PVGIS). Le fonti sono indicate in ogni file di test.
-I dati PVGIS usati nei test sono salvati in `src/engine/__fixtures__/`: i test non usano la rete.
+## Data sources and credits
 
-## Fonti scientifiche
+- **Weather and solar data:** Photovoltaic Geographical Information System (PVGIS)
+  of the European Commission Joint Research Centre,
+  <https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis_en>.
+  PVGIS 5.3 uses the PVGIS-SARAH3 and ERA5 databases. Irradia is an independent
+  project, not affiliated with or endorsed by the European Commission.
+- **Map:** © OpenStreetMap contributors.
+- **Fonts:** Barlow, Barlow Semi Condensed and Figtree (SIL Open Font License 1.1).
+- **Details and licences of third-party material:**
+  [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+- **Scientific references:**
+  - J. Meeus, *Astronomical Algorithms*, 2nd ed., 1998;
+  - NOAA, *Solar Calculator*;
+  - I. Reda, A. Andreas, NREL/TP-560-34302, 2008;
+  - J. A. Duffie, W. A. Beckman, *Solar Engineering of Thermal Processes*, 4th ed., 2013;
+  - T. Muneer, 1990;
+  - J. Hofierka, M. Šúri, 2002;
+  - N. Martin, J. M. Ruiz, 2001;
+  - D. Faiman, 2008;
+  - T. Huld et al., 2011.
 
-- J. Meeus, *Astronomical Algorithms*, 2ª ed., Willmann-Bell, 1998.
-- NOAA Global Monitoring Laboratory, *Solar Calculator*.
-- I. Reda, A. Andreas, *Solar Position Algorithm for Solar Radiation Applications*,
-  NREL/TP-560-34302, 2008.
-- JRC, Commissione Europea, *PVGIS 5.3* — anno meteorologico tipo e irradiazione mensile
-  (banche dati PVGIS-SARAH3 ed ERA5).
-- J. A. Duffie, W. A. Beckman, *Solar Engineering of Thermal Processes*, 4ª ed., Wiley, 2013.
-- T. Muneer, *Solar radiation model for Europe*, Building Services Engineering Research
-  and Technology 11 (1990), pp. 153-163.
-- J. Hofierka, M. Šúri, *The solar radiation model for Open source GIS: implementation and
-  applications*, Open Source GIS – GRASS users conference, Trento, 2002.
-- N. Martin, J. M. Ruiz, *Calculation of the PV modules angular losses under field conditions
-  by means of an analytical model*, Solar Energy Materials & Solar Cells 70 (2001), pp. 25-38.
-- D. Faiman, *Assessing the outdoor operating temperature of photovoltaic modules*,
-  Progress in Photovoltaics 16 (2008), pp. 307-315.
-- T. Huld et al., *A power-rating model for crystalline silicon PV modules*, Solar Energy
-  Materials & Solar Cells 95 (2011), pp. 3359-3369.
+  Full citations are in the source code, next to each formula.
+
+## Licence
+
+Copyright © 2026 Mattia Longo. **All rights reserved.** The code is public so that
+it can be read. No licence to reuse it is granted: see [`LICENSE`](LICENSE).
+Third-party material keeps its own licence: see
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+To report a security problem, see [`.github/SECURITY.md`](.github/SECURITY.md).
