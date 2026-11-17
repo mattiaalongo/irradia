@@ -256,7 +256,7 @@ Prima di ogni commit: `npm test`, `npm run lint` e `npm run build` devono passar
   con schemi costruiti apposta), usata da Vite, Vitest e tinyglobby: il 17/11/2026 **non esiste
   ancora una versione corretta** (4.0.7 è l'ultima). Il rischio è basso: questi strumenti
   leggono solo schemi scritti da noi nella configurazione. Le "correzioni" proposte da npm
-  riporterebbero indietro di versione typescript-eslint (8.36), Vite (6), Vitest (3) e
+  riporterebbero indietro di versione typescript-eslint, Vite (6), Vitest (3) e
   plugin-react (5): rifiutarle. Ricontrolla quando aggiorni le dipendenze.
 - **L'ambiente cloud `irradia` parte da una copia in cache creata prima del 15/11/2026**
   (verificato il 17/11/2026): il ramo locale `main` puntava ancora alla **vecchia storia con
