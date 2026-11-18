@@ -71,6 +71,38 @@ jobs:
       - name: Dimensione del JS iniziale
         run: npm run size
 
+  # Controllo degli indirizzi email nei commit (decisione del PO del 18/11/2026):
+  # il repository diventerà pubblico, l'email personale del PO non deve rientrare nella storia.
+  # Job separato e senza `npm ci`: lo script usa solo moduli di Node, quindi non
+  # esegue codice di terzi e parte subito. Nessun permesso in più (resta `contents:
+  # read`); mai `pull_request_target`, che darebbe a codice di estranei scrittura e segreti.
+  commit-emails:
+    name: Commit emails
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Scarica il codice
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Tutta la storia (~150 commit, pochi secondi): si controllano tutti i
+          # commit, così non esistono casi limite su base o `before` e un
+          # repository incompleto non può dare un verde falso (lo script lo rifiuta).
+          fetch-depth: 0
+
+      # Node 24 come negli altri job, ma senza cache: non c'è nulla da installare.
+      - name: Prepara Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Controlla gli indirizzi email dei commit
+        run: npm run check:emails
+        env:
+          # Head della PR (non il merge sintetico, creato da GitHub con dati che
+          # non controlliamo) o, sui push a `main`, il commit del push. Passato come
+          # variabile d'ambiente: mai interpolare l'espressione nel comando.
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
   # Prove nel browser vero (Chromium) contro la build di produzione. In parallelo
   # al job dei test: non dipende da esso, così i tempi non si sommano.
   e2e:
