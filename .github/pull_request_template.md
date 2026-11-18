@@ -23,6 +23,8 @@
 
 Tested by the Software Tester: levels passed: <!-- e.g. 1, 2, 3 cloud; 4 local / not needed because ... -->
 
+Compliance check: <!-- result of the compliance agent on the latest commit (comment "⚖️ Compliance check") -->
+
 - [ ] `npm test` green
 - [ ] `npm run lint` green
 - [ ] `npm run build` green

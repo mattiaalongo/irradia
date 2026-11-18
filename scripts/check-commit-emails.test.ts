@@ -44,7 +44,7 @@ describe('findViolations', () => {
 
   it('un trailer senza <indirizzo> è una violazione (non verificabile)', () => {
     expect(findViolations([commit({ coAuthors: ['Solo Nome'] })])).toEqual([{ sha: 'abc1234', field: 'co-author' }])
-    expect(extractTrailerEmail('Nome <a@b.it>')).toBe('a@b.it')
+    expect(extractTrailerEmail('Nome <a@example.com>')).toBe('a@example.com')
     expect(extractTrailerEmail('Nome')).toBeNull()
   })
 

@@ -77,15 +77,17 @@ Product Owner with a team of AI agents**.
   the results and decide what gets merged.
 - **The team** is a set of agents with written job descriptions (in Italian) in
   [`.claude/agents/`](.claude/agents): Technical Leader, Software Developer,
-  Designer, Software Tester, CI/CD and Project Manager.
+  Designer, Software Tester, Compliance Officer, CI/CD and Project Manager.
 - **The workflow:** each piece of work goes through these steps:
   1. an issue;
   2. a technical plan with acceptance criteria;
   3. implementation on a separate branch;
   4. independent testing;
-  5. a draft pull request;
-  6. continuous integration;
-  7. my review and merge.
+  5. a compliance check on every new commit (licences, third-party material,
+     personal data);
+  6. a draft pull request;
+  7. continuous integration;
+  8. my review and merge.
 
   The project status is kept in a dedicated issue (#22).
 - **Every decision and its reason** is recorded in [`CLAUDE.md`](CLAUDE.md) (in
@@ -104,7 +106,7 @@ and CI runs of those pull requests are not available here.
 src/engine/   calculation engine: pure TypeScript, no React; each module has its tests
 src/ui/       React components and their pure logic
 e2e/          browser tests (Playwright) with simulated PVGIS data and map tiles
-scripts/      CI tools (size check of the initial JavaScript)
+scripts/      CI tools (initial JavaScript size check, commit email allowlist check)
 .claude/      job descriptions and skills of the AI agents
 CLAUDE.md     decision log and project rules (Italian)
 ```
