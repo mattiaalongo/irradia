@@ -90,8 +90,8 @@ Domanda chiusa per il PO. Opzioni:
 |---|---|---|
 | **"All rights reserved"** (nessuna licenza aperta) | Il codice si legge (e si copia *dentro* GitHub, come prevedono i suoi termini), ma nessuno può riusarlo. Basta per un portfolio e lascia aperta un'app commerciale futura | **Sì**: si può passare a MIT in seguito |
 | MIT | Chiunque riusa tutto, anche per fini commerciali, conservando la nota di copyright | No, per le versioni già pubblicate |
-| Apache-2.0 | Come MIT + concessione sui brevetti + file NOTICE | No |
-| AGPL-3.0 | Chi offre online una versione modificata deve pubblicarne il codice (anche il PO stesso) | No |
+| Apache-2.0 | Come MIT + concessione sui brevetti; un eventuale file NOTICE va ridistribuito | No |
+| AGPL-3.0 | Chi la riceve e offre online una versione modificata deve pubblicarne il codice; il titolare dei diritti non è vincolato dalla propria licenza, ma lo diventa in pratica se accetta contributi esterni sotto AGPL | No |
 
 **Raccomandazione predefinita: "All rights reserved"**, perché è la scelta più prudente e
 l'unica reversibile; passare a una licenza aperta solo se il PO vuole che altri riusino il codice.
@@ -117,8 +117,9 @@ commit, licenza, percorso nel repository e, se utile, l'**hash SHA-256**.
   usare). Dimostra la provenienza confrontando gli hash con il pacchetto ufficiale, per
   esempio con `npm pack @fontsource/<famiglia>@<versione>`.
 - **Dati scaricati da servizi** (meteo, mappe, statistiche): leggi le condizioni d'uso sulla
-  pagina ufficiale e cita la fonte **con le parole che chiede** (es. PVGIS: citare "PVGIS of
-  the European Commission Joint Research Centre" e il collegamento principale). Aggiungi che il
+  pagina ufficiale e cita la fonte **con le parole che chiede** (es. PVGIS: citare "Photovoltaic
+  Geographical Information System (PVGIS) of the European Commission Joint Research Centre" e
+  il collegamento principale; la frase esatta va ricopiata dalla pagina ufficiale). Aggiungi che il
   progetto non è affiliato né approvato dall'ente.
 - **Mappe** (es. OpenStreetMap): attribuzione visibile sulla mappa; non salvare tessere nel
   repository.
@@ -219,8 +220,9 @@ repository **nuovo**, perché i commit vecchi restano raggiungibili dalle pagine
 
 ## Fase 7 — Ordine della pubblicazione
 
-Da privato, il piano gratuito di GitHub **non** offre le regole sui rami: si attivano subito
-dopo. Ordine raccomandato (lo esegue il PO; tu dai i passi esatti):
+Da privato, il piano gratuito di GitHub **non** offre le regole sui rami (verificato l'8/11/2026:
+"Upgrade to GitHub Pro or make this repository public"): si attivano subito dopo. I nomi dei
+menu citati qui sono quelli di novembre 2026: ricontrollarli sulla documentazione di GitHub. Ordine raccomandato (lo esegue il PO; tu dai i passi esatti):
 
 1. Unire la PR di preparazione (licenza, README, note di terzi, SECURITY.md).
 2. Controllo finale della fase 6 e pulizia della cronologia delle modifiche.
@@ -258,8 +260,9 @@ dopo. Ordine raccomandato (lo esegue il PO; tu dai i passi esatti):
 - `npm audit` (o equivalente): distinguere ciò che finisce nell'app (`--omit=dev`) dagli
   strumenti di sviluppo; **rifiutare le "correzioni" che riportano indietro di versione** gli
   strumenti; annotare numeri e cause con la data, perché cambiano con il database degli avvisi.
-- Con i repository pubblici i minuti delle macchine standard di GitHub Actions sono gratuiti;
-  i registri della CI sono pubblici: niente dati personali nei messaggi dei test.
+- Con i repository pubblici i minuti delle macchine standard di GitHub Actions sono gratuiti
+  (da ricontrollare sulla documentazione di GitHub: non verificato dal cloud); i registri della
+  CI sono pubblici: niente dati personali nei messaggi dei test.
 - Aggiornare il README quando cambiano numeri, fasi o licenza.
 
 ## Criteri di uscita
