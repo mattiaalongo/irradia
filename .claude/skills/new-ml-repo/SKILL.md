@@ -60,6 +60,11 @@ Da fare **sul PC del PO**, una volta sola. Proponi i passi, li esegue lui:
   **fissate allo SHA** del commit (versione in commento), `timeout-minutes`, Dependabot
   settimanale con aggiornamenti raggruppati. **Mai `pull_request_target`**: darebbe al codice di
   una PR esterna i permessi di scrittura e i segreti.
+- Un **agente di conformità** (Compliance Officer, solo lettura) che su **ogni PR, dopo ogni
+  nuovo commit**, controlla dati personali e segreti, materiale e dati di terzi, licenze delle
+  dipendenze, condizioni d'uso dei servizi esterni, privacy e coerenza di `LICENSE`,
+  `THIRD_PARTY_NOTICES.md` e README; esito come commento sulla PR, valido solo per quel commit.
+  Modello di partenza: `.claude/agents/compliance.md` del progetto Irradia.
 - Facoltativo ma raccomandato: un job della CI che fa fallire la PR se un commit ha autore o
   committer **fuori da un elenco di indirizzi consentiti** (noreply del PO, Claude, Dependabot,
   `noreply@github.com`). Elenco di indirizzi *consentiti*, mai di vietati: altrimenti l'email
@@ -269,4 +274,5 @@ dopo. Ordine raccomandato (lo esegue il PO; tu dai i passi esatti):
 - [ ] `SECURITY.md` e regola sul testo non fidato.
 - [ ] Repository pubblico, ruleset attivo e provato, secret scanning, push protection e
       segnalazione privata attivi.
+- [ ] Agente di conformità attivo: ultimo controllo `RESULT: OK` sull'ultimo commit.
 - [ ] Decisioni nuove registrate in `CLAUDE.md` con il motivo.
