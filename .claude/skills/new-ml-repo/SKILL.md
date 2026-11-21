@@ -65,11 +65,13 @@ Da fare **sul PC del PO**, una volta sola. Proponi i passi, li esegue lui:
   dipendenze, condizioni d'uso dei servizi esterni, privacy e coerenza di `LICENSE`,
   `THIRD_PARTY_NOTICES.md` e README; esito come commento sulla PR, valido solo per quel commit.
   Modello di partenza: `.claude/agents/compliance.md` del progetto Irradia.
-- Facoltativo ma raccomandato: un job della CI che fa fallire la PR se un commit ha autore o
-  committer **fuori da un elenco di indirizzi consentiti** (noreply del PO, Claude, Dependabot,
+- Facoltativo ma raccomandato: un job della CI che fa fallire la PR se un commit ha autore,
+  committer o co-autore (trailer `Co-authored-by`) **fuori da un elenco di indirizzi consentiti** (noreply del PO, Claude, Dependabot,
   `noreply@github.com`). Elenco di indirizzi *consentiti*, mai di vietati: altrimenti l'email
   personale finirebbe scritta nel repository. Il messaggio d'errore non deve ripetere
-  l'indirizzo trovato, perché i registri della CI saranno pubblici.
+  l'indirizzo trovato, perché i registri della CI saranno pubblici. Per provare un fallimento
+  voluto usare un indirizzo `.invalid` (RFC 2606), non `example.com`: GitHub può collegare
+  quest'ultimo all'account di un estraneo.
 
 ### Copie di lavoro vecchie (lezione di Irradia)
 
@@ -171,6 +173,8 @@ Fallo fare a un agente diverso da chi ha scritto i file (il tester), sull'**ulti
 git fetch origin
 # Autori e committer di tutta la storia: solo indirizzi noreply attesi
 git log origin/main --format='%an <%ae> | %cn <%ce>' | sort | uniq -c
+# Co-autori (trailer Co-authored-by) di tutta la storia: anche loro solo noreply
+git log origin/main --format='%(trailers:key=Co-authored-by,valueonly)' | sort | uniq -c
 # Email nei messaggi e nei contenuti (escluse le noreply)
 git log origin/main -p | grep -noP '[\w.+-]+@[\w-]+\.[\w.]+' | grep -viE 'noreply' | sort -u
 # Percorsi con nome utente

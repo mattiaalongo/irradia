@@ -106,7 +106,7 @@ and CI runs of those pull requests are not available here.
 src/engine/   calculation engine: pure TypeScript, no React; each module has its tests
 src/ui/       React components and their pure logic
 e2e/          browser tests (Playwright) with simulated PVGIS data and map tiles
-scripts/      CI tools (size check of the initial JavaScript)
+scripts/      CI tools (initial JavaScript size check, commit email allowlist check)
 .claude/      job descriptions and skills of the AI agents
 CLAUDE.md     decision log and project rules (Italian)
 ```
