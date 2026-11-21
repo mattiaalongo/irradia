@@ -234,7 +234,9 @@ menu citati qui sono quelli di novembre 2026: ricontrollarli sulla documentazion
    - Settings → Actions → General: "Require approval for all external contributors";
      Workflow permissions **"Read repository contents"**; **non** spuntare "Allow GitHub
      Actions to create and approve pull requests".
-   - Settings → Code security: **Dependabot alerts** e **Dependabot security updates**.
+   - Settings → Advanced Security (il 21/11/2026 la pagina "Code security" aveva già questo
+     nome): **Dependency graph**, **Dependabot alerts** e **Dependabot security updates**.
+     Attivando gli aggiornamenti di sicurezza, Dependabot può aprire subito una PR nuova.
    - Settings → General → Features: spegnere ciò che non si usa (Wiki, Projects,
      Discussions).
    - Scheda "About" (⚙️): descrizione in inglese, argomenti (topics), sito vuoto finché non c'è.
@@ -252,8 +254,16 @@ menu citati qui sono quelli di novembre 2026: ricontrollarli sulla documentazion
        tester (il pulsante "Update branch" crea un commit);
      - firme obbligatorie e storia lineare: solo se i commit sono firmati e le PR si uniscono
        senza commit di unione.
-   - Settings → Code security: **Secret scanning**, **Push protection**, **Private
-     vulnerability reporting**.
+   - Settings → Advanced Security: **Secret scanning**, **Push protection**, **Private
+     vulnerability reporting**. Il 21/11/2026, dopo il passaggio a pubblico, la pagina mostrava
+     "Private vulnerability reporting" con questo nome, ma invece di "Secret scanning" e "Push
+     protection" un solo blocco **"Secret Protection"**. Attivato ("Enable": la finestra dice che non consuma
+     licenze aggiuntive), comprende gli avvisi di secret scanning e fa comparire sotto
+     l'interruttore separato **"Push protection"**, da attivare a parte. Controllo con l'API:
+     `gh api repos/<proprietario>/<repo> --jq .security_and_analysis`.
+   - Il cambio di visibilità chiede di **riconfermare l'accesso** (sudo): lo fa il proprietario.
+   - Una voce "Discussions" nella barra, anche con le Discussions spente, è una pagina
+     promozionale visibile solo al proprietario: verificare da anonimo (deve rispondere 404).
 6. Prova: una PR con un controllo rosso non si può unire; un push forzato su `main` viene
    rifiutato.
 7. Annotare in `CLAUDE.md`: **se si rinomina un job della CI, aggiornare il ruleset**,
