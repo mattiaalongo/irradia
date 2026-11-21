@@ -257,8 +257,10 @@ menu citati qui sono quelli di novembre 2026: ricontrollarli sulla documentazion
    - Settings → Advanced Security: **Secret scanning**, **Push protection**, **Private
      vulnerability reporting**. Il 21/11/2026, dopo il passaggio a pubblico, la pagina mostrava
      "Private vulnerability reporting" con questo nome, ma invece di "Secret scanning" e "Push
-     protection" un solo blocco **"Secret Protection"**: prima di attivarlo, verificare sulla
-     documentazione di GitHub che cosa comprende.
+     protection" un solo blocco **"Secret Protection"**. Attivato ("Enable": la finestra dice che non consuma
+     licenze aggiuntive), comprende gli avvisi di secret scanning e fa comparire sotto
+     l'interruttore separato **"Push protection"**, da attivare a parte. Controllo con l'API:
+     `gh api repos/<proprietario>/<repo> --jq .security_and_analysis`.
    - Il cambio di visibilità chiede di **riconfermare l'accesso** (sudo): lo fa il proprietario.
    - Una voce "Discussions" nella barra, anche con le Discussions spente, è una pagina
      promozionale visibile solo al proprietario: verificare da anonimo (deve rispondere 404).
