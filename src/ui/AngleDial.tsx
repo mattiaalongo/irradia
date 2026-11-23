@@ -70,7 +70,7 @@ export default function AngleDial({ kind, label, value, onChange, hint }: AngleD
    * gli `input` nativi dello slider (valore dalla sola x) vanno scartati e la pagina deve poter scorrere.
    */
   const outsideTouch = useRef(false)
-  const g =kind === 'tilt' ? TILT : AZIMUTH
+  const g = kind === 'tilt' ? TILT : AZIMUTH
   const min = kind === 'tilt' ? TILT_MIN : AZIMUTH_MIN
   const max = kind === 'tilt' ? TILT_MAX : AZIMUTH_MAX
 
