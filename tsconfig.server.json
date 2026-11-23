@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "target": "ES2022",
+    // Solo le API standard (Fetch, stream, AbortController, timer) del "WebWorker": niente DOM
+    // (document, window) e niente Node (`types: []`). Così l'intermediario gira uguale in
+    // Vite (Node), in Cloudflare Workers o in un altro hosting con le API web standard.
+    "lib": ["ES2022", "WebWorker"],
+    "types": [],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  // `src/shared` sta anche in tsconfig.app.json (lo usa l'interfaccia): controllarlo con entrambe
+  // le librerie garantisce che resti valido sia nel browser sia nel server.
+  "include": ["src/server", "src/shared"]
+}

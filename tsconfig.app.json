@@ -26,6 +26,7 @@
   },
   // src/test/ contiene la configurazione dei test (usa `process`, di Node):
   // la controlla tsconfig.node.json, così i tipi di Node non entrano nel codice dell'app.
+  // src/server (intermediario verso PVGIS) gira sul server, senza DOM: lo controlla tsconfig.server.json.
   "include": ["src"],
-  "exclude": ["src/test"]
+  "exclude": ["src/test", "src/server"]
 }
