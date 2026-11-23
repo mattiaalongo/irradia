@@ -503,6 +503,40 @@ test.describe('tocco', () => {
   })
 })
 
+test.describe('tocco che parte fuori dal comando (#58)', () => {
+  test.use({ hasTouch: true, viewport: { width: 360, height: 700 } })
+
+  // Difetto #58: un dito che partiva ~4 px sotto il comando e saliva dentro di esso lasciava attivo il trascinamento
+  // nativo dello slider trasparente (valore dalla sola x: 180 a metà larghezza) e bloccava lo scorrimento della pagina.
+  // Il gesto si simula con il protocollo di Chromium (CDP), perché `page.touchscreen` sa solo toccare, non trascinare.
+  for (const distanza of [2, 4, 8]) {
+    test(`dito ${distanza} px sotto l'orientamento che sale di 8 × 5 px: il valore non cambia`, async ({ page, pvgis }) => {
+      await orologioFermo(page)
+      await avvio(page, pvgis)
+      const c = campo(page, ETICHETTE.azimut)
+      await c.fill('201')
+      await c.blur()
+      const s = azimut(page)
+      await expect(s).toHaveValue('201')
+      await s.scrollIntoViewIfNeeded()
+      const b = (await controllo(s).boundingBox())!
+      const x = b.x + b.width / 2
+      let y = b.y + b.height + distanza
+      const cdp = await page.context().newCDPSession(page)
+      const tocco = (type: 'touchStart' | 'touchMove' | 'touchEnd', punti: { x: number; y: number }[]) =>
+        cdp.send('Input.dispatchTouchEvent', { type, touchPoints: punti })
+      await tocco('touchStart', [{ x, y }])
+      for (let i = 0; i < 8; i++) {
+        y -= 5
+        await tocco('touchMove', [{ x, y }])
+      }
+      await tocco('touchEnd', [])
+      await expect(s).toHaveValue('201')
+      await expect(c).toHaveValue('201')
+    })
+  }
+})
+
 test.describe('anteprima del pannello', () => {
   const anteprima = (page: Page) => page.locator('.panel-preview svg')
 

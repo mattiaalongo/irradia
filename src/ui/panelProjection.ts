@@ -170,7 +170,10 @@ export function projectPanel(tiltDeg: number, azimuthDeg: number, options: Panel
     if (distanceM === undefined) return { x: ox + scale * q[0], y: oy - scale * (q[1] * seps + q[2] * ceps) }
     const z = distanceM + q[1] * ceps - q[2] * seps
     if (!(z > 0)) throw new RangeError('Punto sull\'osservatore o dietro di lui: aumentare la distanza')
-    const k = (scale * distanceM) / z
+    // D / z prima di moltiplicare per la scala: con D enorme scale·D andava in overflow e Infinity·0 dava NaN (#61).
+    // Se il rapporto stesso non è finito (z denormale con D enorme) si segnala, come per gli altri casi impossibili.
+    const k = scale * (distanceM / z)
+    if (!Number.isFinite(k)) throw new RangeError('Prospettiva non rappresentabile: distanza troppo grande rispetto alla scena')
     return { x: ox + k * q[0], y: oy - k * (q[1] * seps + q[2] * ceps) }
   }
 

@@ -185,7 +185,7 @@ export default function App({ initialLook = DEFAULT_LOOK }: { initialLook?: Look
         <p className="source">
           Dati: anno meteorologico tipo PVGIS (JRC, Commissione Europea), {tmy.radiationDb} e {tmy.meteoDb},
           mesi scelti tra il {tmy.yearMin} e il {tmy.yearMax}; punto {formatNumber(tmy.latitude, 4)}° N,{' '}
-          {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.
+          {formatNumber(tmy.longitude, 4)}° E, {formatNumber(tmy.elevationM)} m s.l.m.{' '}
           {shadingNote(tmy.usesHorizon)}
         </p>
 
