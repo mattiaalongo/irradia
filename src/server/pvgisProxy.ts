@@ -20,8 +20,8 @@
  * Nessun registro (log): l'intermediario non conserva coordinate né indirizzi IP.
  */
 
-import { PVGIS_API_VERSION, pvgisTmyUrl } from '../engine/pvgisTmy'
-import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from '../shared/area'
+import { PVGIS_API_VERSION, pvgisTmyUrl } from '../engine/pvgisTmy.ts'
+import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from '../shared/area.ts'
 
 /**
  * Indirizzo di base dell'API PVGIS. Fonte: JRC, "PVGIS API — non-interactive service"

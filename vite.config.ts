@@ -1,13 +1,13 @@
 import { defineConfig } from 'vitest/config'
 import type { Connect, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { devProxyRequest } from './src/server/devProxyRequest.ts'
 import {
   handlePvgisProxy,
-  isPvgisProxyPath,
   PVGIS_PROXY_MAX_BYTES,
   PVGIS_PROXY_TIMEOUT_MS,
   PVGIS_PROXY_USER_AGENT_DEV,
-} from './src/server/pvgisProxy'
+} from './src/server/pvgisProxy.ts'
 
 /**
  * Intermediario verso PVGIS per `npm run dev` e `npm run preview`.
@@ -26,20 +26,16 @@ import {
  */
 function pvgisProxyPlugin(): Plugin {
   const middleware: Connect.NextHandleFunction = (req, res, next) => {
-    const url = new URL(req.url ?? '/', 'http://localhost')
-    if (!isPvgisProxyPath(url.pathname)) return next()
-
     // Se il browser chiude la connessione (es. l'app annulla un download superato), anche la
     // richiesta a PVGIS si interrompe. `close` arriva anche dopo una risposta completa: in quel
     // caso `writableEnded` è vero e non si annulla nulla.
     const abort = new AbortController()
+    // Conversione senza eccezioni; `undefined` = non è per l'intermediario (vedi il file).
+    const request = devProxyRequest(req.url, req.method, abort.signal)
+    if (request === undefined) return next()
     res.on('close', () => {
       if (!res.writableEnded) abort.abort()
     })
-    // Metodi diversi da GET e HEAD diventano POST: l'intermediario risponde 405 in ogni caso, e
-    // alcuni metodi (CONNECT, TRACE) non sono ammessi da `new Request` (WHATWG Fetch §5.4).
-    const method = req.method === 'GET' || req.method === 'HEAD' ? req.method : 'POST'
-    const request = new Request(url, { method, signal: abort.signal })
 
     handlePvgisProxy(request, {
       fetch: globalThis.fetch,
@@ -68,6 +64,12 @@ function pvgisProxyPlugin(): Plugin {
 // https://vite.dev/config/  —  https://vitest.dev/config/
 export default defineConfig({
   plugins: [react(), pvgisProxyPlugin()],
+  // Nessuna intestazione CORS nemmeno in sviluppo e in anteprima, come in produzione: l'app è
+  // servita dalla stessa origine dell'intermediario e non ne ha bisogno. Il valore predefinito di
+  // Vite aggiunge `Access-Control-Allow-Origin` per le pagine aperte da localhost
+  // (https://vite.dev/config/server-options#server-cors).
+  server: { cors: false },
+  preview: { cors: false },
   test: {
     // Il motore di calcolo è TypeScript puro: non serve simulare un browser.
     environment: 'node',

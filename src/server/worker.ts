@@ -18,7 +18,7 @@ import {
   PVGIS_PROXY_MAX_BYTES,
   PVGIS_PROXY_TIMEOUT_MS,
   PVGIS_PROXY_USER_AGENT_PRODUCTION,
-} from './pvgisProxy'
+} from './pvgisProxy.ts'
 
 /**
  * Ambiente della funzione, scritto a mano (niente `@cloudflare/workers-types`: una dipendenza
