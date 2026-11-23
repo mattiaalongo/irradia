@@ -4,10 +4,10 @@
 
 /**
  * Indirizzo di base dell'API PVGIS visto dal browser.
- * In sviluppo è il proxy di Vite (`vite.config.ts`), che gira le richieste a
- * https://re.jrc.ec.europa.eu/api: PVGIS non invia header CORS, quindi il browser
- * non può chiamarlo direttamente. In produzione (fase 6) servirà un intermediario
- * lato server raggiungibile allo stesso indirizzo.
+ * È l'intermediario `server/pvgisProxy.ts` (prefisso `PVGIS_PROXY_PREFIX`), che gira le
+ * richieste a https://re.jrc.ec.europa.eu/api: PVGIS non invia header CORS, quindi il browser
+ * non può chiamarlo direttamente. Lo stesso codice risponde in sviluppo e in anteprima
+ * (plugin in `vite.config.ts`) e in produzione (`server/worker.ts`).
  */
 export const PVGIS_BASE_URL = '/api/pvgis'
 

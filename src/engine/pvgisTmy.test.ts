@@ -521,10 +521,11 @@ describe('fetchPvgisTmy — tipo dell\'errore (kind), issue #11', () => {
     }
   })
 
-  it('502/503/504 con corpo vuoto text/plain (come il proxy di Vite) o HTML → unavailable, con lo stato', async () => {
+  it('429/502/503/504 con corpo vuoto text/plain (come il proxy di Vite) o HTML → unavailable, con lo stato', async () => {
     // Il proxy di Vite, se la connessione a PVGIS fallisce, risponde
     // `res.writeHead(502, {"Content-Type":"text/plain"}).end()` (codice di Vite, verificato il 12/11/2026).
-    for (const status of [502, 503, 504]) {
+    // 429 senza JSON: Cloudflare Workers a quota gratuita esaurita (fonte in `UNAVAILABLE_STATUSES`).
+    for (const status of [429, 502, 503, 504]) {
       for (const [body, contentType] of [
         ['', 'text/plain'],
         ['<html><body>Service Unavailable</body></html>', 'text/html'],
@@ -537,8 +538,8 @@ describe('fetchPvgisTmy — tipo dell\'errore (kind), issue #11', () => {
     }
   })
 
-  it('gli stati di "non raggiungibile" sono esattamente 502, 503, 504 (RFC 9110 §15.6.3-15.6.5)', () => {
-    expect(UNAVAILABLE_STATUSES).toEqual([502, 503, 504])
+  it('gli stati di "non raggiungibile" sono esattamente 429 (Cloudflare, quota esaurita), 502, 503, 504 (RFC 9110 §15.6.3-15.6.5)', () => {
+    expect(UNAVAILABLE_STATUSES).toEqual([429, 502, 503, 504])
   })
 
   it('altri 5xx senza JSON (500, 501, 505) → notJson, non unavailable', async () => {
@@ -549,8 +550,8 @@ describe('fetchPvgisTmy — tipo dell\'errore (kind), issue #11', () => {
     }
   })
 
-  it('502/503/504 con corpo JSON → rejected (risponde chi ha il dato, non un intermediario muto)', async () => {
-    for (const status of [502, 503, 504]) {
+  it('429/502/503/504 con corpo JSON → rejected (risponde chi ha il dato, non un intermediario muto)', async () => {
+    for (const status of [429, 502, 503, 504]) {
       const err = await failure(respond(JSON.stringify({ message: 'Server busy', status }), status))
       expect(err.kind, String(status)).toBe('rejected')
       expect(err.status).toBe(status)

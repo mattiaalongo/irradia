@@ -85,10 +85,11 @@ export interface Tmy {
  *   (risposta 4xx, vedi `PVGIS_COVERAGE_PHRASE`).
  * - `rejected`: qualunque altra risposta di errore HTTP con un corpo JSON (es. parametri
  *   sbagliati, errori del server, o un testo di PVGIS che non riconosciamo più).
- * - `unavailable`: il servizio non è raggiungibile in questo momento: risposta 502, 503 o 504
- *   SENZA corpo JSON (vedi `UNAVAILABLE_STATUSES`). È la risposta del proxy di Vite quando non
- *   raggiunge PVGIS (502, corpo vuoto `text/plain`), e quella attesa dall'intermediario di
- *   produzione (fase 6) quando PVGIS non risponde o scade il tempo. Problema temporaneo.
+ * - `unavailable`: il servizio non è raggiungibile in questo momento: risposta 429, 502, 503 o
+ *   504 SENZA corpo JSON (vedi `UNAVAILABLE_STATUSES`). È la risposta dell'intermediario
+ *   (`server/pvgisProxy.ts`, in sviluppo e in produzione) quando PVGIS non risponde, è
+ *   sovraccarico o scade il tempo, e quella dell'hosting a quota gratuita esaurita (429).
+ *   Problema temporaneo.
  * - `notJson`: la risposta non è JSON per qualunque altro codice (es. pagina HTML del firewall,
  *   anche con codice 200).
  * - `network`: la richiesta non è arrivata a una risposta (rete assente, proxy spento…).
@@ -163,18 +164,24 @@ function rejectionKind(status: number, detail: string | undefined): PvgisErrorKi
 }
 
 /**
- * Codici HTTP che dicono "il servizio dietro di me non è raggiungibile ora", quando la risposta
- * non è JSON (un corpo JSON di errore resta `rejected`: viene da chi ha davvero risposto).
+ * Codici HTTP che dicono "il servizio non è raggiungibile ora", quando la risposta non è JSON
+ * (un corpo JSON di errore resta `rejected`: viene da chi ha davvero risposto).
  * Fonte: RFC 9110 "HTTP Semantics" (IETF, 2022):
  * - §15.6.3 502 Bad Gateway: l'intermediario ha ricevuto una risposta non valida dal server a
- *   monte (o nessuna: è il caso del proxy di Vite, `res.writeHead(502, {"Content-Type":
- *   "text/plain"}).end()` quando la connessione a PVGIS fallisce);
+ *   monte (o nessuna: è il caso di `server/pvgisProxy.ts` quando la connessione a PVGIS
+ *   fallisce o PVGIS risponde in modo inatteso; prima lo faceva il proxy di Vite con
+ *   `res.writeHead(502, {"Content-Type": "text/plain"}).end()`);
  * - §15.6.4 503 Service Unavailable: il server non può rispondere ora (sovraccarico,
  *   manutenzione), probabilmente per poco;
  * - §15.6.5 504 Gateway Timeout: l'intermediario non ha avuto risposta in tempo dal server a monte.
- * Esclusi 500 (errore interno: non dice che riprovare serva) e gli altri 5xx.
+ * E 429 Too Many Requests (RFC 6585 §4): Cloudflare Workers, a quota gratuita giornaliera
+ * esaurita, risponde 429 alle rotte servite dal Worker (Cloudflare, "Static Assets — Billing and
+ * limitations", https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/:
+ * "these requests will receive a 429 (Too Many Requests) response"; decisione del PO del
+ * 23/11/2026). Il 429 di PVGIS non arriva mai così al browser: l'intermediario lo converte in 503.
+ * Esclusi 500 (errore interno: non dice che riprovare serva) e gli altri codici.
  */
-export const UNAVAILABLE_STATUSES: readonly number[] = [502, 503, 504]
+export const UNAVAILABLE_STATUSES: readonly number[] = [429, 502, 503, 504]
 
 /**
  * Colonne di PVGIS che leggiamo, il campo corrispondente e l'unità che PVGIS

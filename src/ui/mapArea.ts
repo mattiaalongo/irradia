@@ -8,17 +8,14 @@
 
 import { formatNumber } from './format'
 import { roundCoord } from './tmyLoader'
+import { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON } from '../shared/area'
 
 /**
- * Limiti dell'area di lavoro, in gradi (limiti inclusi). Unica fonte per gli slider di
- * `App.tsx` e per la mappa. Motivo (CLAUDE.md): l'area del progetto è Italia/Europa;
- * 34-72° N va da Creta/Cipro a Capo Nord, −25-45° E dalle Azzorre/Islanda al Caucaso.
- * Sono numeri interi: arrotondando a 4 decimali (`roundCoord`) un punto interno resta interno.
+ * Limiti dell'area di lavoro, in gradi (limiti inclusi). Unica fonte per i campi di
+ * `App.tsx`, per la mappa e per l'intermediario verso PVGIS: i valori e il loro motivo
+ * stanno in `shared/area.ts`, qui sono solo riesportati.
  */
-export const AREA_MIN_LAT = 34
-export const AREA_MAX_LAT = 72
-export const AREA_MIN_LON = -25
-export const AREA_MAX_LON = 45
+export { AREA_MAX_LAT, AREA_MAX_LON, AREA_MIN_LAT, AREA_MIN_LON }
 
 /** Un punto in gradi. */
 export interface LatLon {
