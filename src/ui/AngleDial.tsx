@@ -65,6 +65,11 @@ export default function AngleDial({ kind, label, value, onChange, hint }: AngleD
   const dragging = useRef(false)
   /** Istante (ms) dell'ultimo evento del puntatore: i `change` nativi subito dopo un gesto vanno ignorati. */
   const lastGesture = useRef(0)
+  /**
+   * true dal tocco iniziato fuori dal riquadro del comando finché tutte le dita non si alzano (#58): in quel gesto
+   * gli `input` nativi dello slider (valore dalla sola x) vanno scartati e la pagina deve poter scorrere.
+   */
+  const outsideTouch = useRef(false)
   const g = kind === 'tilt' ? TILT : AZIMUTH
   const min = kind === 'tilt' ? TILT_MIN : AZIMUTH_MIN
   const max = kind === 'tilt' ? TILT_MAX : AZIMUTH_MAX
@@ -77,16 +82,30 @@ export default function AngleDial({ kind, label, value, onChange, hint }: AngleD
     const el = inputRef.current
     if (!el) return
     // Il browser "aggiusta" i tocchi vicini a un elemento e li attribuisce a lui: si ignorano quelli fuori dal riquadro.
+    // Un gesto che PARTE fuori resta "di fuori" anche quando il dito entra nel comando (#58): niente
+    // `preventDefault` (la pagina scorre) e gli `input` nativi vengono scartati in `onChange`.
     const stop = (e: TouchEvent) => {
       const t = e.touches[0] ?? e.changedTouches[0]
-      if (t && !insideRect(el.getBoundingClientRect(), t.clientX, t.clientY)) return
+      const outside = t !== undefined && !insideRect(el.getBoundingClientRect(), t.clientX, t.clientY)
+      if (e.type === 'touchstart' && e.touches.length === 1) outsideTouch.current = outside
+      if (outside || outsideTouch.current) return
       if (e.cancelable) e.preventDefault()
+    }
+    // Il gesto finisce quando non resta nessun dito; la finestra di 400 ms copre un `input` nativo in ritardo.
+    const end = (e: TouchEvent) => {
+      if (e.touches.length > 0 || !outsideTouch.current) return
+      outsideTouch.current = false
+      lastGesture.current = Date.now()
     }
     el.addEventListener('touchstart', stop, { passive: false })
     el.addEventListener('touchmove', stop, { passive: false })
+    el.addEventListener('touchend', end)
+    el.addEventListener('touchcancel', end)
     return () => {
       el.removeEventListener('touchstart', stop)
       el.removeEventListener('touchmove', stop)
+      el.removeEventListener('touchend', end)
+      el.removeEventListener('touchcancel', end)
     }
   }, [])
 
@@ -129,7 +148,7 @@ export default function AngleDial({ kind, label, value, onChange, hint }: AngleD
               // Cintura e bretelle: un `input` nativo VERO durante o subito dopo un gesto del puntatore
               // è il calcolo dello slider (solo x), non il nostro. Quelli da tastiera e da tecnologie
               // assistive (lontani da un gesto) e quelli sintetici (`fill`) passano.
-              if (e.nativeEvent.isTrusted && (dragging.current || Date.now() - lastGesture.current < 400)) return
+              if (e.nativeEvent.isTrusted && (dragging.current || outsideTouch.current || Date.now() - lastGesture.current < 400)) return
               onChange(e.target.valueAsNumber)
             }}
             onKeyDown={onKeyDown}

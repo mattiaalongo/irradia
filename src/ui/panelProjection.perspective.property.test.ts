@@ -60,12 +60,32 @@ describe('projectPanel in prospettiva (proprietà)', () => {
     )
   })
 
-  // DIFETTO NOTO (bassa gravità, non raggiungibile dall'interfaccia: l'anteprima B usa distanza 10):
-  // con una distanza finita ma enorme scale·distanza va in overflow → Infinity·0 = NaN, senza RangeError.
-  // Da segnalare all'SWD (issue da aprire); quando sarà corretto, togliere `.fails`.
-  it.fails('distanza finita enorme (1,8e306): né NaN né Infinity (oppure RangeError)', () => {
+  // Difetto #61 (corretto): con una distanza finita ma enorme scale·distanza andava in overflow → Infinity·0 = NaN.
+  it('distanza finita enorme (1,8e306): né NaN né Infinity (oppure RangeError)', () => {
     const p = projectPanel(0, 0, { ...B, distanceM: 1.797693134862316e306, elevationDeg: 0 })
     expect(finite(p)).toBe(true)
+  })
+
+  it('distanze fino a Number.MAX_VALUE: coordinate finite oppure RangeError, mai NaN (#61)', () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: 0, max: 90, noNaN: true }),
+        fc.double({ min: 0, max: 360, noNaN: true }),
+        fc.double({ min: 1e300, max: Number.MAX_VALUE, noNaN: true }),
+        fc.double({ min: -90, max: 90, noNaN: true }),
+        (t, a, d, el) => {
+          let p: PanelProjection
+          try {
+            p = projectPanel(t, a, { ...B, distanceM: d, elevationDeg: el })
+          } catch (e) {
+            expect(e).toBeInstanceOf(RangeError)
+            return
+          }
+          expect(finite(p), `d=${d} el=${el}`).toBe(true)
+        },
+      ),
+      { numRuns: 400 },
+    )
   })
 
   it('distanza non valida: RangeError sempre (0, negativa, NaN, ±Infinity)', () => {
